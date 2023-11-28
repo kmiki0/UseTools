@@ -4,6 +4,7 @@
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="150"/>
         <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="*"/>
       </Grid.ColumnDefinitions>
       <!-- ナビメニュー -->
       <Grid Grid.Column="0" Background="AliceBlue">
@@ -34,8 +35,17 @@
           </StackPanel>
         </StackPanel> 
       </Grid>
-      <Grid Grid.Column="1">
-       <TextBlock Text="TextBlock" FontSize="20" Margin="10"/> 
+      <Grid Grid.Column="1" Background="#FFE8EBEB" Margin="40 , 0, 0, 0">
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+          <TextBlock Text="名前" Width="100" Height="30" FontSize="17" Background="AliceBlue"/> 
+          <TextBox Text="TextBox" Width="150" Height="40"  FontSize="20"/>
+        </StackPanel>
+      </Grid>
+      <Grid Grid.Column="2">
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+          <TextBlock Text="フリガナ" Width="100" Height="30" FontSize="17"  Background="AliceBlue"/> 
+          <TextBox Text="TextBox" Width="150" Height="40"  FontSize="20"/>
+        </StackPanel>
       </Grid>
     </Grid>
   </Window.Content>
