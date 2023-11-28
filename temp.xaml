@@ -1,1 +1,42 @@
-
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" Background="AliceBlue">
+  <Window.Content>
+    <Grid Background="White" Margin="0">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="150"/>
+        <ColumnDefinition Width="*"/>
+      </Grid.ColumnDefinitions>
+      <!-- ナビメニュー -->
+      <Grid Grid.Column="0" Background="AliceBlue">
+        <StackPanel Margin="0, 30, 0 , 0">
+          <!-- 利用者　登録 -->
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Width="150" Height="50">
+            <!-- <Image x:Name="コントロールの名前" Source="Resources/画像.jpg"/> -->
+            <Image Width="30" Height="30" Margin="15, 0 ,5 , 0" Source="sample.png"/>
+            <TextBlock Text="利用者  登録" VerticalAlignment="Center"/>
+          </StackPanel>
+          <!-- 利用者　一覧 -->
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Width="150" Height="50" Background="#FFE0E0E0">
+            <!-- <Image x:Name="コントロールの名前" Source="Resources/画像.jpg"/> -->
+            <Image Width="30" Height="30" Margin="15, 0 ,5 , 0" Source="sample.png"/>
+            <TextBlock Text="利用者  一覧" VerticalAlignment="Center"/>
+          </StackPanel>
+          <!-- 設定 -->
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Width="150" Height="50">
+            <!-- <Image x:Name="コントロールの名前" Source="Resources/画像.jpg"/> -->
+            <Image Width="30" Height="30" Margin="15, 0 ,5 , 0" Source="sample.png"/>
+            <TextBlock Text="設定" VerticalAlignment="Center"/>
+          </StackPanel>
+          <!-- Excelを開く -->
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Width="150" Height="50">
+            <!-- <Image x:Name="コントロールの名前" Source="Resources/画像.jpg"/> -->
+            <Image Width="30" Height="30" Margin="15, 0 ,5 , 0" Source="sample.png"/>
+            <TextBlock Text="Excelを開く" VerticalAlignment="Center"/>
+          </StackPanel>
+        </StackPanel> 
+      </Grid>
+      <Grid Grid.Column="1">
+       <TextBlock Text="TextBlock" FontSize="20" Margin="10"/> 
+      </Grid>
+    </Grid>
+  </Window.Content>
+</Window>
