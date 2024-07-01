@@ -1,0 +1,90 @@
+# 初めてのPodman
+
+普段、Dockerを使っていますが、「Dockerより軽くて安全らしい」という  
+噂だけで、Podmanが気になりすぎるので、使ってみることにしました。
+
+## はじめに
+- とりあえず、コピペで簡単に使えるレベルのものを作ってみます。  
+- 詳しい項目の説明等は、別途書く予定・・・
+
+## 何が軽くて安全なのか？
+- 軽い理由
+  - Podmanはデーモンを使わないため、Dockerよりも軽量
+
+- 安全な理由
+  - 非root権限でコンテナを実行することができる。  
+  > Dockerは、デフォルト設定でコンテナをroot権限で実行される
+  > 対応として、Dockerfile の USER で指定したユーザーで実行することで、
+  > root権限での実行を防ぐことができるが、Podmanはデフォルトで非root権限で実行される
+
+- Dockerコマンド
+  - Podmanは、Dockerのコマンドをほぼそのまま使うことができる
+  - 例えば、Dockerの `docker run` は、Podmanの `podman run` など、置き換えるだけで使える
+
+> デーモンって？
+> - デーモン（英: daemon）は、UNIX系オペレーティングシステムにおいて、  
+>   バックグラウンドで動作するプロセスのことを指す。
+
+## なにわともあれ、やってみよう！
+
+### Podmanのインストール
+
+1. Linuxの名前やバージョン、ID等を取得
+```bash
+ . /etc/os-release
+```
+2. Ubuntuシステムでのパッケージのソースリストに新しいリポジトリを追加する 
+```bash
+ sudo sh -c "echo 'deb http://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/x${NAME}_${VERSION_ID}/ /' > /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list"
+```
+
+3. wgetコマンドを使用して、指定されたURLからファイルをダウンロードして、Release.keyという名前で保存する
+```bash
+ wget -nv https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/x${NAME}_${VERSION_ID}/Release.key -O Release.key
+```
+
+
+4. apt-key addコマンドを使用して、Release.keyファイルをリリースキーとしてシステムに追加する
+```bash
+ sudo apt-key add - < Release.key
+```
+
+5. パッケージリストを更新する (-qq : 出力を抑制するオプション) 
+```bash
+ sudo apt-get update -qq
+```
+
+6. Podmanをインストールする
+```bash
+ sudo apt-get -qq -y install podman
+```
+
+7. ディレクトリを作成する (-p : 親ディレクトリも作成するオプション)
+```bash
+ sudo mkdir -p /etc/containers
+```
+
+8. registries.confというファイルに指定されたDockerレジストリのリストを書き込む。
+```bash
+ echo -e "[registries.search]\nregistries = ['docker.io', 'quay.io']" | sudo tee /etc/containers/registries.conf
+```
+
+9. Podmanのバージョンを確認する
+```bash
+ podman --version
+```
+
+
+
+
+
+
+
+
+
+
+
+## 参考
+- [Docker一強の終焉にあたり、押さえるべきContainer事情](https://zenn.dev/ttnt_1013/articles/f36e251a0cd24e)
+- [Docker Desktopと代替ソフトウェア大集合](https://devops-blog.virtualtech.jp/entry/20230104/1672800265)
+- [WSL2にPodmanを入れる](https://blog.uyorum.net/post/podman-on-wsl2/)
