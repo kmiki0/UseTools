@@ -74,9 +74,9 @@ ALTER DATABASE [DBNAME] SET MULTI_USER;
       # バックアップを復元するスクリプトを出力
       $sb = New-Object System.Text.StringBuilder
       
-    [void]$sb.AppendLine("ALTER DATABASE ${dbname} SET SINGLE_USER WITH ROLLBACK IMMEDIATE;")
-    [void]$sb.AppendLine("RESTORE DATABASE ${dbname} FROM DISK='${bakpath}\${backup_file}' WITH RECOVERY")
-    [void]$sb.AppendLine("ALTER DATABASE ${dbname} SET MULTI_USER;")
+	[void]$sb.AppendLine("ALTER DATABASE $dbname SET SINGLE_USER WITH ROLLBACK IMMEDIATE;")
+	[void]$sb.AppendLine("RESTORE DATABASE $dbname FROM DISK='$bakpath\$backup_file' WITH RECOVERY;")
+	[void]$sb.AppendLine("ALTER DATABASE $dbname SET MULTI_USER;")
 
       # 結果をファイルに追記出力
       Write-Output $sb.ToString() | Out-File -Append $outfile
