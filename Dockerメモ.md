@@ -48,6 +48,31 @@ Dockerでの仮想環境の作り方を調べることから毎回始まって�
     CMD ["python", "app.py"]
     ```
 
+  - `USER`
+    - コンテナ内でのユーザーを指定する
+
+    ```Dockerfile
+    # ユーザーとグループはビルド時に指定する
+    ARG UID
+    ARG GID
+    
+    # ユーザーとグループを作成
+    RUN groupadd -g ${UID} dev && \
+        useradd -l -u ${GID} -g dev dev && \
+        install -d -m 0755 -o dev -g dev /home/dev
+    
+    USER dev
+    ```
+
+    コンテナを作成するときに、ユーザーIDとグループIDを指定することで、  
+    コンテナ内でのユーザーをホストと同じにすることが出来る
+
+    ```bash
+        # Dockerイメージのビルド
+        docker build --build-arg UID=$(id -u) --build-arg GID=$(id -g) -t myimage .
+    ```
+
+
 ## requirements.txt
 - 説明
   - pipでインストールするパッケージを書くファイル
