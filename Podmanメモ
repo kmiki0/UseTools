@@ -67,6 +67,53 @@ Dockerと互換性があるため、Dockerのコマンドをほぼそのまま�
  podman --version
 ```
 
+### パッケージの公開鍵を取得し、システムに追加する
+
+```bash
+curl -fsSL https://download.opensuse.org/repositories/devel:kubic:libcontainers:unstable/xUbuntu_22.04/Release.key| gpg --dearmor | sudo tee /etc/apt/keyrings/devel_kubic_libcontainers_unstable.gpg > /dev/null
+```
+- `curl`コマンドを使用して、指定されたURLから公開鍵をダウンロードします。
+  - `gpg`コマンドを使用して、その公開鍵を解読します。
+  - `sudo tee`コマンドを使用して、解読された公開鍵を
+    `/etc/apt/keyrings/devel_kubic_libcontainers_unstable.gpg`というファイルに書き込みます。
+  - 最後に、`> /dev/null`を使用して出力を無視します。
+
+
+> このコードの目的は、`OpenSUSE`のリポジトリからパッケージをインストールするために、必要な公開鍵を取得し、システムに追加することです。
+> 公開鍵は、パッケージの信頼性を確保するために使用されます。
+
+### パッケージの追加リポジトリを設定
+
+```bash
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/devel_kubic_libcontainers_unstable.gpg] https://download.opensuse.org/repositories/devel:kubic:libcontainers:unstable/xUbuntu_$(lsb_release -rs)/ /" | sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:unstable.list > /dev/null
+```
+
+- `echo`コマンドを使用して新しいリポジトリのエントリを作成する。
+    - `deb`はリポジトリの形式を指定する。
+    - `[arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/devel_kubic_libcontainers_unstable.gpg]`は
+    リポジトリのアーキテクチャと署名ファイルを指定する。
+        - archパラメータには、`dpkg --print-architecture`コマンドを使用して、現在のシステムのアーキテクチャが指定される。
+        - signed-byパラメータには、署名ファイルのパスが指定される。
+    - `https://download.opensuse.org/repositories/devel:kubic:libcontainers:unstable/xUbuntu_$(lsb_release -rs)/`は
+    リポジトリのURLを指定する。
+    - `/etc/apt/sources.list.d/devel:kubic:libcontainers:unstable.list`は
+      リポジトリのエントリを書き込むファイルのパスを指定する。
+
+- `sudo tee`コマンドを使用してエントリをファイルに書き込みます。
+    - sudo teeコマンドを使用して、
+      エントリを`/etc/apt/sources.list.d/devel:kubic:libcontainers:unstable.list`ファイルに書き込みます。
+
+- 最後に、`> /dev/null`を使用して出力を無視します。
+
+> リダイレクト演算子 `>` を使用して、`tee`コマンドの出力を`/dev/null`にリダイレクトします。
+> `/dev/null`は、データを捨てるための特殊なファイルです。
+
+
+
+
+
+
+
 ## 終わりに
 Podmanを使ってみましたが、Dockerとの互換性があるため、  
 Dockerを使っている人にとっては、操作感は変わらないかもしれません。  
