@@ -1,0 +1,8 @@
+CREATE TABLE Jobs (
+    JobId INTEGER PRIMARY KEY AUTOINCREMENT,
+    ExecutionType TEXT NOT NULL,
+    LogFilePath TEXT NOT NULL
+);
+
+INSERT INTO Jobs (ExecutionType, LogFilePath) VALUES ('コマンド', 'C:\\logs\\job1.log');
+INSERT INTO Jobs (ExecutionType, LogFilePath) VALUES ('DB更新', 'C:\\logs\\job2.log');

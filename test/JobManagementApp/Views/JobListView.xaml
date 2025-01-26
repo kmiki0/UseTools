@@ -1,0 +1,24 @@
+<UserControl x:Class="JobManagementApp.Views.JobListView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:JobManagementApp.ViewModels">
+    <UserControl.DataContext>
+        <vm:JobViewModel/>
+    </UserControl.DataContext>
+    <Grid>
+        <DataGrid ItemsSource="{Binding Jobs}" AutoGenerateColumns="False" Margin="10">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="ジョブID" Binding="{Binding JobId}" />
+                <DataGridTextColumn Header="実行方法" Binding="{Binding ExecutionType}" />
+                <DataGridTextColumn Header="ログファイル" Binding="{Binding LogFilePath}" />
+                <DataGridTemplateColumn Header="実行">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Content="実行" Command="{Binding ExecuteJobCommand}" CommandParameter="{Binding}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+    </Grid>
+</UserControl>
