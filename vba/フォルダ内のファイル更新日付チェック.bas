@@ -1,5 +1,4 @@
-Attribute VB_Name = "Module1"
-Sub ƒtƒHƒ‹ƒ_“à‚Ìƒtƒ@ƒCƒ‹XV“ú•tƒ`ƒFƒbƒN()
+Sub ãƒ•ã‚©ãƒ«ãƒ€å†…ã®ãƒ•ã‚¡ã‚¤ãƒ«æ›´æ–°æ—¥ä»˜ãƒã‚§ãƒƒã‚¯()
     Dim folderPath As String
     Dim filePath As String
     Dim fileName As String
@@ -7,58 +6,48 @@ Sub ƒtƒHƒ‹ƒ_“à‚Ìƒtƒ@ƒCƒ‹XV“ú•tƒ`ƒFƒbƒN()
     Dim lastRow As Long
     Dim ws As Worksheet
     
-    ' ƒtƒHƒ‹ƒ_‚ÌƒpƒX‚ğw’èi—áFC:\temp\j
-    folderPath = "C:\Users\batch\"
-    
-    ' ƒtƒHƒ‹ƒ_‚Ì––”ö‚Éu\\v‚ª‚È‚¯‚ê‚Î’Ç‰Á
-    If Right(folderPath, 1) <> "\\" Then
-        folderPath = folderPath & "\\"
-    End If
-    
-    ' ƒ[ƒNƒV[ƒgİ’è
+    ' ãƒ¯ãƒ¼ã‚¯ã‚·ãƒ¼ãƒˆè¨­å®š
     Set ws = ThisWorkbook.Sheets("Sheet1")
-    lastRow = ws.Cells(ws.Rows.Count, "A").End(xlUp).Row
+    lastRow = ws.Cells(ws.Rows.Count, "D").End(xlUp).Row
     
-    ' C—ñ‚Ì’l‚ğB—ñ‚ÉˆÚ“®
+    ' Fåˆ—ã®å€¤ã‚’Eåˆ—ã«ç§»å‹•
     Dim i As Long
     For i = 2 To lastRow
-        ws.Cells(i, 2).Value = ws.Cells(i, 3).Value
+        ws.Cells(i, 5).Value = ws.Cells(i, 6).Value
     Next i
     
-    ' ƒtƒHƒ‹ƒ_“à‚Ì‚·‚×‚Ä‚Ìƒtƒ@ƒCƒ‹‚ğˆ—
-    filePath = Dir(folderPath & "*.*")
-    Do While filePath <> ""
-        ' ƒtƒ@ƒCƒ‹–¼iŠg’£q‚È‚µj‚ğæ“¾
-        fileName = Left(filePath, InStrRev(filePath, ".") - 1)
-        fileDate = FileDateTime(folderPath & filePath)
-        
-        Dim found As Range
-        Set found = ws.Columns("A").Find(fileName, LookAt:=xlWhole)
-        
-        If Not found Is Nothing Then
-            ' XV“ú‚ğC—ñ‚É‹LÚ
-            found.Offset(0, 2).Value = fileDate
-            found.Offset(0, 2).NumberFormat = "yyyy/mm/dd hh:mm:ss"
-            
-            ' B—ñ‚ÆC—ñ‚Ì”äŠr
-            If found.Offset(0, 1).Value <> found.Offset(0, 2).Value Then
-                found.Offset(0, 3).Value = "›"
-                found.Offset(0, 3).Interior.Color = RGB(255, 0, 0) ' ÔFƒnƒCƒ‰ƒCƒg
-            Else
-                found.Offset(0, 3).Value = ""
-                found.Offset(0, 3).Interior.ColorIndex = xlNone
-            End If
-        Else
-            ' V‚µ‚¢ƒtƒ@ƒCƒ‹‚ğÅIs‚É’Ç‰Á
-            lastRow = lastRow + 1
-            ws.Cells(lastRow, 1).Value = fileName
-            ws.Cells(lastRow, 3).Value = fileDate
-            ws.Cells(lastRow, 3).NumberFormat = "yyyy/mm/dd hh:mm:ss"
+    ' ãƒ•ã‚©ãƒ«ãƒ€å†…ã®ã™ã¹ã¦ã®ãƒ•ã‚¡ã‚¤ãƒ«ã‚’å‡¦ç†
+    For i = 2 To lastRow
+        folderPath = ws.Cells(i, 2).Value
+        If Right(folderPath, 1) <> "\\" Then
+            folderPath = folderPath & "\\"
         End If
         
-        filePath = Dir()
-    Loop
+        fileName = "NORMAL_" & ws.Cells(i, 4).Value & ".log"
+        filePath = folderPath & fileName
+        
+        If Dir(filePath) = "" Then
+            fileName = "NORMAL_" & ws.Cells(i, 4).Value & "_SEND.log"
+            filePath = folderPath & fileName
+        End If
+        
+        If Dir(filePath) <> "" Then
+            fileDate = FileDateTime(filePath)
+            ws.Cells(i, 6).Value = fileDate
+            ws.Cells(i, 6).NumberFormat = "yyyy/mm/dd hh:mm:ss"
+            
+            ' Eåˆ—ã¨Fåˆ—ã®æ¯”è¼ƒ
+            If ws.Cells(i, 5).Value <> ws.Cells(i, 6).Value Then
+                ws.Cells(i, 7).Value = "â—‹"
+                ws.Cells(i, 7).Interior.Color = RGB(144, 238, 144) ' è–„ã„ç·‘
+            Else
+                ws.Cells(i, 7).Value = ""
+                ws.Cells(i, 7).Interior.ColorIndex = xlNone
+            End If
+        Else
+            ws.Cells(i, 6).Value = "ãƒ•ã‚¡ã‚¤ãƒ«æœªç™ºè¦‹"
+        End If
+    Next i
     
-    MsgBox "ˆ—‚ªŠ®—¹‚µ‚Ü‚µ‚½", vbInformation
+    MsgBox "å‡¦ç†ãŒå®Œäº†ã—ã¾ã—ãŸ", vbInformation
 End Sub
-
