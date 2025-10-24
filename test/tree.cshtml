@@ -11,183 +11,113 @@
     <!-- Bulma CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
     <style>
-        html, body {
-            height: 100%;
-            margin: 0;
-        }
-
-        .main-container {
-            padding: 1.5rem;
-        }
-
-        .columns {
-            margin: 0 !important;
-        }
-
-        .tree-box {
-            height: 100%;
-            overflow-y: auto;
-        }
-
-        .content-box {
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .textarea-wrapper {
-            flex: 1;
-            display: flex;
-            margin-bottom: 1rem;
-        }
-
-        .textarea-wrapper textarea {
-            flex: 1;
-            resize: none;
-        }
-
-        /* トグルボタンのカスタムスタイル */
+        /* トグルボタンのカスタムスタイル - 灰色/緑色の切り替えに必要 */
         .toggle-btn {
-            width: 100%;
-            text-align: left;
-            margin-bottom: 0.5rem;
-            background-color: #7a7a7a;
-            border-color: #7a7a7a;
-            color: white;
+            background-color: #7a7a7a !important;
+            border-color: #7a7a7a !important;
+            color: white !important;
         }
 
         .toggle-btn:hover {
-            background-color: #5a5a5a;
-            border-color: #5a5a5a;
-            color: white;
+            background-color: #5a5a5a !important;
+            border-color: #5a5a5a !important;
         }
 
         .toggle-btn.is-active {
-            background-color: #48c774;
-            border-color: #48c774;
-            color: white;
+            background-color: #48c774 !important;
+            border-color: #48c774 !important;
         }
 
         .toggle-btn.is-active:hover {
-            background-color: #3ec46d;
-            border-color: #3ec46d;
-            color: white;
+            background-color: #3ec46d !important;
+            border-color: #3ec46d !important;
         }
 
-        .parent-toggle {
-            font-weight: 600;
-            font-size: 1rem;
+        /* テキストエリアを画面いっぱいに拡張 */
+        .full-height-textarea {
+            height: calc(100vh - 250px);
+            resize: none;
         }
 
-        .child-toggle {
-            font-weight: 500;
-            font-size: 0.9rem;
-        }
-
-        .child-items {
-            margin-left: 2rem;
-            margin-top: 0.5rem;
-        }
-
-        .parent-item {
-            margin-bottom: 1rem;
+        /* ツリーのスクロール */
+        .scrollable-tree {
+            height: calc(100vh - 150px);
+            overflow-y: auto;
         }
     </style>
 </head>
-<body>
-    <div class="main-container">
-        <div class="columns" style="height: calc(100vh - 3rem);">
-            <!-- 左側: ツリー構造 -->
-            <div class="column is-one-third">
-                <div class="box tree-box">
-                    <h3 class="title is-5 mb-4">アイテムリスト</h3>
+<body class="p-4">
+    <div class="columns">
+        <!-- 左側: ツリー構造 -->
+        <div class="column is-one-third">
+            <div class="box scrollable-tree">
+                <h3 class="title is-5 mb-4">アイテムリスト</h3>
+                
+                <!-- 親アイテム1 -->
+                <div class="mb-4">
+                    <button class="button toggle-btn parent-toggle is-fullwidth has-text-left has-text-weight-semibold" data-parent="parent1">
+                        親アイテム1
+                    </button>
                     
-                    <!-- 親アイテム1 -->
-                    <div class="parent-item">
-                        <button class="button toggle-btn parent-toggle" data-parent="parent1">
-                            親アイテム1
+                    <div class="ml-5 mt-2">
+                        <button class="button toggle-btn child-toggle is-fullwidth has-text-left mb-2" data-parent="parent1">
+                            子アイテム1-1
                         </button>
-                        
-                        <div class="child-items">
-                            <div class="child-item">
-                                <button class="button toggle-btn child-toggle" data-parent="parent1">
-                                    子アイテム1-1
-                                </button>
-                            </div>
-                            <div class="child-item">
-                                <button class="button toggle-btn child-toggle" data-parent="parent1">
-                                    子アイテム1-2
-                                </button>
-                            </div>
-                            <div class="child-item">
-                                <button class="button toggle-btn child-toggle" data-parent="parent1">
-                                    子アイテム1-3
-                                </button>
-                            </div>
-                        </div>
+                        <button class="button toggle-btn child-toggle is-fullwidth has-text-left mb-2" data-parent="parent1">
+                            子アイテム1-2
+                        </button>
+                        <button class="button toggle-btn child-toggle is-fullwidth has-text-left mb-2" data-parent="parent1">
+                            子アイテム1-3
+                        </button>
                     </div>
+                </div>
 
-                    <!-- 親アイテム2 -->
-                    <div class="parent-item">
-                        <button class="button toggle-btn parent-toggle" data-parent="parent2">
-                            親アイテム2
+                <!-- 親アイテム2 -->
+                <div class="mb-4">
+                    <button class="button toggle-btn parent-toggle is-fullwidth has-text-left has-text-weight-semibold" data-parent="parent2">
+                        親アイテム2
+                    </button>
+                    
+                    <div class="ml-5 mt-2">
+                        <button class="button toggle-btn child-toggle is-fullwidth has-text-left mb-2" data-parent="parent2">
+                            子アイテム2-1
                         </button>
-                        
-                        <div class="child-items">
-                            <div class="child-item">
-                                <button class="button toggle-btn child-toggle" data-parent="parent2">
-                                    子アイテム2-1
-                                </button>
-                            </div>
-                            <div class="child-item">
-                                <button class="button toggle-btn child-toggle" data-parent="parent2">
-                                    子アイテム2-2
-                                </button>
-                            </div>
-                        </div>
+                        <button class="button toggle-btn child-toggle is-fullwidth has-text-left mb-2" data-parent="parent2">
+                            子アイテム2-2
+                        </button>
                     </div>
+                </div>
 
-                    <!-- 親アイテム3 -->
-                    <div class="parent-item">
-                        <button class="button toggle-btn parent-toggle" data-parent="parent3">
-                            親アイテム3
+                <!-- 親アイテム3 -->
+                <div class="mb-4">
+                    <button class="button toggle-btn parent-toggle is-fullwidth has-text-left has-text-weight-semibold" data-parent="parent3">
+                        親アイテム3
+                    </button>
+                    
+                    <div class="ml-5 mt-2">
+                        <button class="button toggle-btn child-toggle is-fullwidth has-text-left mb-2" data-parent="parent3">
+                            子アイテム3-1
                         </button>
-                        
-                        <div class="child-items">
-                            <div class="child-item">
-                                <button class="button toggle-btn child-toggle" data-parent="parent3">
-                                    子アイテム3-1
-                                </button>
-                            </div>
-                            <div class="child-item">
-                                <button class="button toggle-btn child-toggle" data-parent="parent3">
-                                    子アイテム3-2
-                                </button>
-                            </div>
-                            <div class="child-item">
-                                <button class="button toggle-btn child-toggle" data-parent="parent3">
-                                    子アイテム3-3
-                                </button>
-                            </div>
-                            <div class="child-item">
-                                <button class="button toggle-btn child-toggle" data-parent="parent3">
-                                    子アイテム3-4
-                                </button>
-                            </div>
-                        </div>
+                        <button class="button toggle-btn child-toggle is-fullwidth has-text-left mb-2" data-parent="parent3">
+                            子アイテム3-2
+                        </button>
+                        <button class="button toggle-btn child-toggle is-fullwidth has-text-left mb-2" data-parent="parent3">
+                            子アイテム3-3
+                        </button>
+                        <button class="button toggle-btn child-toggle is-fullwidth has-text-left mb-2" data-parent="parent3">
+                            子アイテム3-4
+                        </button>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <!-- 右側: テキストエリアとボタン -->
-            <div class="column">
-                <div class="box content-box">
-                    <div class="textarea-wrapper">
-                        <textarea class="textarea" id="mainTextArea" placeholder="ここにテキストを入力してください..."></textarea>
-                    </div>
-                    <div class="has-text-right">
-                        <button class="button is-primary is-medium" id="submitBtn">送信</button>
-                    </div>
+        <!-- 右側: テキストエリアとボタン -->
+        <div class="column">
+            <div class="box">
+                <textarea class="textarea full-height-textarea" id="mainTextArea" placeholder="ここにテキストを入力してください..."></textarea>
+                <div class="has-text-right mt-3">
+                    <button class="button is-primary is-medium" id="submitBtn">送信</button>
                 </div>
             </div>
         </div>
