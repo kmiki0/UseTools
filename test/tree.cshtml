@@ -8,231 +8,187 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@ViewBag.Title</title>
+    <!-- Bulma CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
     <style>
-        * {
-            box-sizing: border-box;
+        html, body {
+            height: 100%;
+            margin: 0;
         }
 
-        .container {
-            display: flex;
-            gap: 20px;
-            padding: 20px;
-            height: 100vh;
+        .main-container {
+            padding: 1.5rem;
         }
 
-        /* 左側のツリー部分 */
-        .tree-container {
-            flex: 0 0 350px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 20px;
-            background-color: #f9f9f9;
+        .columns {
+            margin: 0 !important;
+        }
+
+        .tree-box {
+            height: 100%;
             overflow-y: auto;
         }
 
-        .tree-item {
-            margin-bottom: 10px;
+        .content-box {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
         }
 
-        .parent-item {
-            margin-bottom: 15px;
+        .textarea-wrapper {
+            flex: 1;
+            display: flex;
+            margin-bottom: 1rem;
         }
 
+        .textarea-wrapper textarea {
+            flex: 1;
+            resize: none;
+        }
+
+        /* トグルボタンのカスタムスタイル */
         .toggle-btn {
-            padding: 10px 20px;
-            background-color: #6c757d;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: all 0.3s;
-            text-align: left;
             width: 100%;
-            margin-bottom: 8px;
+            text-align: left;
+            margin-bottom: 0.5rem;
+            background-color: #7a7a7a;
+            border-color: #7a7a7a;
+            color: white;
         }
 
         .toggle-btn:hover {
-            background-color: #5a6268;
-            transform: translateY(-1px);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            background-color: #5a5a5a;
+            border-color: #5a5a5a;
+            color: white;
         }
 
-        .toggle-btn.active {
-            background-color: #28a745;
+        .toggle-btn.is-active {
+            background-color: #48c774;
+            border-color: #48c774;
+            color: white;
         }
 
-        .toggle-btn.active:hover {
-            background-color: #218838;
+        .toggle-btn.is-active:hover {
+            background-color: #3ec46d;
+            border-color: #3ec46d;
+            color: white;
         }
 
         .parent-toggle {
             font-weight: 600;
-            font-size: 16px;
-            padding: 12px 20px;
+            font-size: 1rem;
         }
 
         .child-toggle {
             font-weight: 500;
-            font-size: 14px;
+            font-size: 0.9rem;
         }
 
         .child-items {
-            margin-left: 40px;
-            margin-top: 10px;
+            margin-left: 2rem;
+            margin-top: 0.5rem;
         }
 
-        .child-item {
-            margin-bottom: 8px;
-        }
-
-        /* 右側のテキストエリア部分 */
-        .content-container {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 20px;
-            background-color: #fff;
-        }
-
-        .text-area-wrapper {
-            flex: 1;
-            margin-bottom: 15px;
-        }
-
-        .large-textarea {
-            width: 100%;
-            height: 100%;
-            padding: 15px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-size: 14px;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            resize: none;
-        }
-
-        .large-textarea:focus {
-            outline: none;
-            border-color: #007bff;
-            box-shadow: 0 0 5px rgba(0, 123, 255, 0.3);
-        }
-
-        .button-container {
-            display: flex;
-            justify-content: flex-end;
-        }
-
-        .submit-btn {
-            padding: 12px 30px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-
-        .submit-btn:hover {
-            background-color: #0056b3;
-        }
-
-        .submit-btn:active {
-            transform: scale(0.98);
+        .parent-item {
+            margin-bottom: 1rem;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <!-- 左側: ツリー構造 -->
-        <div class="tree-container">
-            <h3>アイテムリスト</h3>
-            
-            <!-- 親アイテム1 -->
-            <div class="parent-item">
-                <button class="toggle-btn parent-toggle" data-parent="parent1">
-                    親アイテム1
-                </button>
-                
-                <div class="child-items" data-parent-group="parent1">
-                    <div class="child-item">
-                        <button class="toggle-btn child-toggle" data-parent="parent1">
-                            子アイテム1-1
+    <div class="main-container">
+        <div class="columns" style="height: calc(100vh - 3rem);">
+            <!-- 左側: ツリー構造 -->
+            <div class="column is-one-third">
+                <div class="box tree-box">
+                    <h3 class="title is-5 mb-4">アイテムリスト</h3>
+                    
+                    <!-- 親アイテム1 -->
+                    <div class="parent-item">
+                        <button class="button toggle-btn parent-toggle" data-parent="parent1">
+                            親アイテム1
                         </button>
+                        
+                        <div class="child-items">
+                            <div class="child-item">
+                                <button class="button toggle-btn child-toggle" data-parent="parent1">
+                                    子アイテム1-1
+                                </button>
+                            </div>
+                            <div class="child-item">
+                                <button class="button toggle-btn child-toggle" data-parent="parent1">
+                                    子アイテム1-2
+                                </button>
+                            </div>
+                            <div class="child-item">
+                                <button class="button toggle-btn child-toggle" data-parent="parent1">
+                                    子アイテム1-3
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                    <div class="child-item">
-                        <button class="toggle-btn child-toggle" data-parent="parent1">
-                            子アイテム1-2
+
+                    <!-- 親アイテム2 -->
+                    <div class="parent-item">
+                        <button class="button toggle-btn parent-toggle" data-parent="parent2">
+                            親アイテム2
                         </button>
+                        
+                        <div class="child-items">
+                            <div class="child-item">
+                                <button class="button toggle-btn child-toggle" data-parent="parent2">
+                                    子アイテム2-1
+                                </button>
+                            </div>
+                            <div class="child-item">
+                                <button class="button toggle-btn child-toggle" data-parent="parent2">
+                                    子アイテム2-2
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                    <div class="child-item">
-                        <button class="toggle-btn child-toggle" data-parent="parent1">
-                            子アイテム1-3
+
+                    <!-- 親アイテム3 -->
+                    <div class="parent-item">
+                        <button class="button toggle-btn parent-toggle" data-parent="parent3">
+                            親アイテム3
                         </button>
+                        
+                        <div class="child-items">
+                            <div class="child-item">
+                                <button class="button toggle-btn child-toggle" data-parent="parent3">
+                                    子アイテム3-1
+                                </button>
+                            </div>
+                            <div class="child-item">
+                                <button class="button toggle-btn child-toggle" data-parent="parent3">
+                                    子アイテム3-2
+                                </button>
+                            </div>
+                            <div class="child-item">
+                                <button class="button toggle-btn child-toggle" data-parent="parent3">
+                                    子アイテム3-3
+                                </button>
+                            </div>
+                            <div class="child-item">
+                                <button class="button toggle-btn child-toggle" data-parent="parent3">
+                                    子アイテム3-4
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- 親アイテム2 -->
-            <div class="parent-item">
-                <button class="toggle-btn parent-toggle" data-parent="parent2">
-                    親アイテム2
-                </button>
-                
-                <div class="child-items" data-parent-group="parent2">
-                    <div class="child-item">
-                        <button class="toggle-btn child-toggle" data-parent="parent2">
-                            子アイテム2-1
-                        </button>
+            <!-- 右側: テキストエリアとボタン -->
+            <div class="column">
+                <div class="box content-box">
+                    <div class="textarea-wrapper">
+                        <textarea class="textarea" id="mainTextArea" placeholder="ここにテキストを入力してください..."></textarea>
                     </div>
-                    <div class="child-item">
-                        <button class="toggle-btn child-toggle" data-parent="parent2">
-                            子アイテム2-2
-                        </button>
+                    <div class="has-text-right">
+                        <button class="button is-primary is-medium" id="submitBtn">送信</button>
                     </div>
                 </div>
-            </div>
-
-            <!-- 親アイテム3 -->
-            <div class="parent-item">
-                <button class="toggle-btn parent-toggle" data-parent="parent3">
-                    親アイテム3
-                </button>
-                
-                <div class="child-items" data-parent-group="parent3">
-                    <div class="child-item">
-                        <button class="toggle-btn child-toggle" data-parent="parent3">
-                            子アイテム3-1
-                        </button>
-                    </div>
-                    <div class="child-item">
-                        <button class="toggle-btn child-toggle" data-parent="parent3">
-                            子アイテム3-2
-                        </button>
-                    </div>
-                    <div class="child-item">
-                        <button class="toggle-btn child-toggle" data-parent="parent3">
-                            子アイテム3-3
-                        </button>
-                    </div>
-                    <div class="child-item">
-                        <button class="toggle-btn child-toggle" data-parent="parent3">
-                            子アイテム3-4
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- 右側: テキストエリアとボタン -->
-        <div class="content-container">
-            <div class="text-area-wrapper">
-                <textarea class="large-textarea" id="mainTextArea" placeholder="ここにテキストを入力してください..."></textarea>
-            </div>
-            <div class="button-container">
-                <button class="submit-btn" id="submitBtn">送信</button>
             </div>
         </div>
     </div>
@@ -242,7 +198,7 @@
         $(document).ready(function() {
             // 個別の子トグルボタンのクリック
             $('.child-toggle').on('click', function() {
-                $(this).toggleClass('active');
+                $(this).toggleClass('is-active');
             });
 
             // 親トグルボタンのクリック
@@ -252,13 +208,13 @@
                 var $childButtons = $('.child-toggle[data-parent="' + parentId + '"]');
                 
                 // 親ボタンの状態を切り替え
-                $btn.toggleClass('active');
+                $btn.toggleClass('is-active');
                 
                 // 親ボタンの状態に合わせて子ボタンを全て切り替え
-                if ($btn.hasClass('active')) {
-                    $childButtons.addClass('active');
+                if ($btn.hasClass('is-active')) {
+                    $childButtons.addClass('is-active');
                 } else {
-                    $childButtons.removeClass('active');
+                    $childButtons.removeClass('is-active');
                 }
             });
 
@@ -268,7 +224,7 @@
                 var selectedItems = [];
                 
                 // アクティブなアイテムを収集
-                $('.toggle-btn.active').each(function() {
+                $('.toggle-btn.is-active').each(function() {
                     selectedItems.push($(this).text().trim());
                 });
 
