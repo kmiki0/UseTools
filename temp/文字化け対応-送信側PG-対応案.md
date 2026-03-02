@@ -43,7 +43,7 @@ System.IO.StreamWriter(strFilePath, false, System.Text.Encoding.Default)
 
 ## 対応案
 
-### 案A: VB.NET側で変換不可文字を「■」に置換
+### 対応案: VB.NET側で変換不可文字を「■」に置換
 
 DB抽出後、CSV書き込み前に変換不可文字を検出して「■」に置換する。
 
@@ -88,105 +88,211 @@ address3 = ReplaceUnmappableChars(address3)
 
 ---
 
-### 案B: VB.NET側で近似文字に変換（個別マッピング）
+## EncoderReplacementFallback 詳細解説
 
-変換不可文字を、意味的に近い文字に個別変換する。
+### 概要
 
-#### 実装方法
+.NET の文字コード変換において、**マッピングできない文字が出てきたときの処理方法**を制御する仕組み。
+`Encoding.GetEncoding` の第2引数で指定する。
 
-```vb
-''' <summary>
-''' CP932に存在しない文字を近似文字に変換する
-''' </summary>
-Public Function ConvertToApproximate(value As String) As String
-    If String.IsNullOrEmpty(value) Then Return value
+### デフォルトの挙動（現行の問題）
 
-    Dim sb As New System.Text.StringBuilder(value)
+`Encoding.GetEncoding(932)` のデフォルトFallbackは `EncoderReplacementFallback("?")` である。
 
-    ' 旧字体・異体字 → 常用漢字
-    sb.Replace("髙", "高")
-    sb.Replace("﨑", "崎")
-    sb.Replace("濵", "浜")
-    sb.Replace("麵", "麺")
-
-    ' ハイフン系 → 全角ハイフンマイナス（CP932で変換可能）
-    sb.Replace(ChrW(&H2212), "－")  ' MINUS SIGN
-    sb.Replace(ChrW(&H2010), "－")  ' HYPHEN
-    sb.Replace(ChrW(&H2013), "－")  ' EN DASH
-    sb.Replace(ChrW(&H2014), "－")  ' EM DASH
-
-    Return sb.ToString()
-End Function
+```
+Unicode「髙」→ CP932に無い → Fallback発動 →「?」に置換
 ```
 
-#### メリット・デメリット
+これが現在発生している「?」文字化けの正体。
 
-| 観点 | 評価 |
-|---|---|
-| 実装コスト | △ マッピング表の作成・維持が必要 |
-| 網羅性 | ✕ リストに無い文字は対応できない（漏れのリスク） |
-| 保守性 | △ 新しい文字が出てきたら都度追加 |
-| データ品質 | ◎ 元の意味を可能な限り保持 |
+### Fallback の種類
+
+| 種類 | クラス名 | 挙動 | 用途 |
+|---|---|---|---|
+| 置換Fallback | `EncoderReplacementFallback` | 指定した文字列に置き換える | 今回の対応で使用 |
+| 例外Fallback | `EncoderExceptionFallback` | 変換不可で例外をスローする | 変換不可文字の検知・洗い出し |
+| Best-Fit Fallback | （デフォルト動作の一部） | 似た文字にマッピングを試みる | OS/ランタイム依存 |
+
+### 置換Fallback の使い方
+
+```vb
+' デフォルト：変換できない文字は「?」になる
+Dim encDefault As Encoding = Encoding.GetEncoding(932)
+
+' カスタム：変換できない文字を「■」にする
+Dim encCustom As Encoding = Encoding.GetEncoding(
+    932,
+    New EncoderReplacementFallback("■"),   ' エンコード時（Unicode→CP932）
+    DecoderFallback.ReplacementFallback     ' デコード時（CP932→Unicode）
+)
+```
+
+- 第2引数: エンコード時（Unicode→CP932）のFallback ← **今回関係するのはこちら**
+- 第3引数: デコード時（CP932→Unicode）のFallback
+
+### 処理の流れ
+
+```
+Encoding.GetBytes("東京都○○区髙田１－２")
+
+  東 → CP932にある → そのまま変換
+  京 → CP932にある → そのまま変換
+  ...
+  髙 → CP932に無い → ★Fallback発動★
+      → EncoderReplacementFallback("?")  なら「?」
+      → EncoderReplacementFallback("■") なら「■」
+      → EncoderExceptionFallback()       なら例外スロー
+  田 → CP932にある → そのまま変換
+  ...
+```
+
+1文字ずつ変換を試み、CP932にマッピングできない文字が出たときだけFallbackが発動する。
+そのため、**CP932に無い文字をリスト管理する必要がない**のが最大のメリット。
+
+### 例外Fallback による変換不可文字の洗い出し
+
+`EncoderExceptionFallback` を使えば、変換不可文字の特定を自動化できる。
+
+```vb
+Dim encStrict As Encoding = Encoding.GetEncoding(
+    932,
+    New EncoderExceptionFallback(),
+    DecoderFallback.ExceptionFallback
+)
+
+Try
+    Dim bytes() As Byte = encStrict.GetBytes(value)
+Catch ex As EncoderFallbackException
+    ' ex.CharUnknown : 変換できなかった文字
+    ' ex.Index       : その文字の位置
+    Debug.WriteLine($"変換不可: '{ex.CharUnknown}' (U+{AscW(ex.CharUnknown):X4}) at index {ex.Index}")
+End Try
+```
+
+本番では置換Fallback（「■」変換）を使いつつ、調査・ログ用途で例外Fallbackを併用することも可能。
 
 ---
 
-### 案C: 案Aと案Bの併用（推奨）
+## EncoderReplacementFallback 詳細解説
 
-近似文字に変換できるものは変換し（案B）、それでも残った変換不可文字は「■」に置換する（案A）。
+### 概要
 
-#### 実装方法
+.NETの文字コード変換において、マッピングできない文字が出現した際の処理を制御する仕組み。
+`Encoding.GetEncoding` の第2引数（エンコード時）・第3引数（デコード時）で指定する。
 
-```vb
-' 1. まず近似文字に変換
-Dim address3 As String = dr("住所３").ToString()
-address3 = ConvertToApproximate(address3)
+### デフォルトの挙動
 
-' 2. それでも残った変換不可文字は「■」に
-address3 = ReplaceUnmappableChars(address3)
+`Encoding.GetEncoding(932)` をそのまま使った場合、デフォルトのFallbackは `EncoderReplacementFallback("?")` である。
+これが、現在発生している「?」文字化けの直接原因。
+
+```
+Unicode「髙」→ CP932に無い → Fallback発動 →「?」に置換
 ```
 
-#### メリット・デメリット
+### Fallbackの種類
 
-| 観点 | 評価 |
-|---|---|
-| 実装コスト | ○ 両方の関数が必要 |
-| 網羅性 | ◎ 案Aがセーフティネットになる |
-| 保守性 | ○ マッピング表は段階的に拡充可能 |
-| データ品質 | ◎ 近似変換で救える文字は救い、残りは「■」 |
+| 種類 | クラス名 | 挙動 | 用途 |
+|---|---|---|---|
+| 置換Fallback | `EncoderReplacementFallback` | 指定した文字列に置き換える | 今回の対応で使用 |
+| 例外Fallback | `EncoderExceptionFallback` | 変換不可で例外をスローする | 変換不可文字の検知・洗い出し |
+| Best-Fit Fallback | （デフォルト動作の一部） | 似た文字にマッピングを試みる | OS/ランタイム依存 |
+
+### 置換Fallbackの使い方
+
+```vb
+' デフォルト：変換できない文字は「?」になる
+Dim encDefault As Encoding = Encoding.GetEncoding(932)
+
+' カスタム：変換できない文字を「■」にする
+Dim encCustom As Encoding = Encoding.GetEncoding(
+    932,
+    New EncoderReplacementFallback("■"),   ' エンコード時（Unicode→CP932）
+    DecoderFallback.ReplacementFallback     ' デコード時（CP932→Unicode）
+)
+```
+
+- 第2引数：エンコード時（Unicode→CP932）のFallback ← 今回はここが重要
+- 第3引数：デコード時（CP932→Unicode）のFallback
+
+### 処理の流れ
+
+```
+Encoding.GetBytes("東京都○○区髙田１－２")
+
+  東 → CP932にある → そのまま変換
+  京 → CP932にある → そのまま変換
+  ...
+  髙 → CP932に無い → ★Fallback発動★
+      → EncoderReplacementFallback("?")  なら「?」
+      → EncoderReplacementFallback("■") なら「■」
+      → EncoderExceptionFallback()       なら例外スロー
+  田 → CP932にある → そのまま変換
+  ...
+```
+
+1文字ずつ変換を試み、CP932にマッピングできない文字が出現した時のみFallbackが発動する。
+そのため、CP932に存在しない文字を個別にリスト管理する必要がない。
+
+### 例外Fallbackによる変換不可文字の洗い出し
+
+`EncoderExceptionFallback` を使うと、変換不可文字の特定が可能。
+調査・ログ用途で活用できる。
+
+```vb
+Dim encStrict As Encoding = Encoding.GetEncoding(
+    932,
+    New EncoderExceptionFallback(),
+    DecoderFallback.ExceptionFallback
+)
+
+Try
+    Dim bytes() As Byte = encStrict.GetBytes(value)
+Catch ex As EncoderFallbackException
+    ' ex.CharUnknown : 変換できなかった文字
+    ' ex.Index       : その文字の位置
+    Debug.WriteLine($"変換不可: '{ex.CharUnknown}' (U+{AscW(ex.CharUnknown):X4}) at index {ex.Index}")
+End Try
+```
+
+本番環境では置換Fallback（「■」置換）を使用しつつ、調査時に例外Fallbackでログ出力して変換不可文字を洗い出すという併用も有効。
 
 ---
 
-### 案D: Oracle SQL側で変換（参考）
+## 補足：半角混入問題とCP932変換不可問題は別問題
 
-SQL抽出時にOracle関数で変換する方法。
+今回の送信側で発生している問題は、厳密には**2つの異なる問題**が混在している。
+
+| # | 問題 | 例 | 原因 |
+|---|---|---|---|
+| ① | 半角文字の混入 | `A`, `1`, `ｱ` | データ入力ミス等 |
+| ② | CP932に無い全角文字が「?」になる | 髙、麵、`U+2212` | Unicode→CP932変換時のマッピング不在 |
+
+### Oracle SQLでの対応範囲
+
+SQL側の `REGEXP_REPLACE` で半角文字を「■」に変換する方法は**①の半角混入には有効**である。
 
 ```sql
-SELECT
-    REGEXP_REPLACE(
-        住所３,
-        '[' ||
-        CHR(33) || '-' || CHR(126) ||
-        UNISTR('\FF61') || '-' || UNISTR('\FF9F') ||
-        ']',
-        '■'
-    ) AS 住所３
-FROM テーブル名
+REGEXP_REPLACE(
+    住所３,
+    '[' || CHR(33) || '-' || CHR(126) ||
+    UNISTR('\FF61') || '-' || UNISTR('\FF9F') || ']',
+    '■'
+)
 ```
 
-※ これは半角文字の変換用であり、CP932変換不可文字の対応とは別問題。
-※ CP932変換不可文字の対応はVB.NET側（案A〜C）で行う方が適切。
+しかし、**②のCP932変換不可文字には対応できない**。
+髙（`U+9AD9`）や麵（`U+9EB5`）、MINUS SIGN（`U+2212`）等はUnicode上では「全角」に分類されるため、半角の範囲指定では検出されない。
 
----
+SQLで②に対応しようとすると、CP932に存在しない文字をすべてリストアップして個別に `REPLACE` する必要があり、網羅性・保守性ともに現実的ではない。
 
-## 対応案比較
+### 対策の使い分け
 
-| 観点 | 案A（■置換） | 案B（近似変換） | 案C（併用）★推奨 | 案D（SQL） |
-|---|---|---|---|---|
-| 実装コスト | ◎ | △ | ○ | △ |
-| 網羅性 | ◎ | ✕ | ◎ | △ |
-| 保守性 | ◎ | △ | ○ | △ |
-| データ品質 | △ | ◎ | ◎ | △ |
-| 受信側との共通化 | ○ | ✕ | ○ | ✕ |
+| 問題 | 対策箇所 | 方法 |
+|---|---|---|
+| ①半角混入 | Oracle SQL or VB.NET | `REGEXP_REPLACE` or `ConvertHanToMark` |
+| ②CP932変換不可文字 → 「?」 | **VB.NET一択** | `EncoderReplacementFallback("■")` による `ReplaceUnmappableChars` |
+
+②は文字コードのエンコーディングレベルの問題であり、VB.NETの `EncoderReplacementFallback` を使うことでCP932に無い文字を自動的・網羅的に検出できる。SQLでの対応は困難。
 
 ---
 
