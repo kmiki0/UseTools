@@ -69,7 +69,7 @@ button.primary { background: var(--accent); color: var(--accent-ink); border-col
       <label class="opt"><input type="checkbox" id="o-int" checked> 整数は <code>int</code> にする</label>
       <label class="opt"><input type="checkbox" id="o-string"> 全部の型を <code>string</code> にする</label>
       <label class="opt"><input type="checkbox" id="o-noattr"> 属性を付けない</label>
-      <label class="opt" for="o-ns">namespace <input type="text" id="o-ns" value="BlazorApp.Shared" placeholder="空にすると namespace を付けない" spellcheck="false"></label>
+      <label class="opt" for="o-ns">namespace <input type="text" id="o-ns" value="MyApp.Models" placeholder="空にすると namespace を付けない" spellcheck="false"></label>
     </fieldset>
   </div>
 
@@ -437,7 +437,7 @@ function generate(root, opt) {
   }
 
   function save() {
-    try { localStorage.setItem('xml-class-converter-options-4', JSON.stringify(options())); } catch (e) {}
+    try { localStorage.setItem('xml-class-converter-options-5', JSON.stringify(options())); } catch (e) {}
   }
   src.addEventListener('input', run);
   mapBox.addEventListener('input', function () {
@@ -462,7 +462,7 @@ function generate(root, opt) {
 
   // 前に選んだ内容を戻す
   try {
-    var saved = JSON.parse(localStorage.getItem('xml-class-converter-options-4') || 'null');
+    var saved = JSON.parse(localStorage.getItem('xml-class-converter-options-5') || 'null');
     if (saved) {
       for (var k2 in checks) if (typeof saved[k2] === 'boolean') document.getElementById(checks[k2]).checked = saved[k2];
       if (typeof saved.ns === 'string') nsBox.value = saved.ns;
