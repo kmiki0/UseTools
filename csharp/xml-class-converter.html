@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>XML クラス変換</title>
+<style>
+/* 上に説明と選択肢、下に「貼り付ける欄」と「変換した結果」を左右に並べる。狭い画面では上下に並ぶ */
+:root {
+  --bg: #f5f7fa; --surface: #ffffff; --ink: #1a2230; --muted: #586478; --line: #d3dae4;
+  --accent: #0b7468; --accent-ink: #ffffff; --ok: #0b7468; --warn: #a2500a;
+  --font-text: "Hiragino Sans", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+  --font-code: "Cascadia Code", Consolas, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #11151c; --surface: #1a202a; --ink: #e7ebf1; --muted: #9ba7b9; --line: #2f3947;
+    --accent: #5fd9c8; --accent-ink: #0c1a18; --ok: #5fd9c8; --warn: #ffb169;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-text); font-size: 15px; line-height: 1.7; }
+.wrap { max-width: 1500px; height: 100%; margin: 0 auto; padding: 20px 16px; display: flex; flex-direction: column; gap: 12px; }
+h1 { font-size: 1.35rem; margin: 0; line-height: 1.3; }
+p { margin: 0; }
+.lede { color: var(--muted); font-size: 0.9rem; max-width: 62em; }
+.opts { display: flex; flex-wrap: wrap; gap: 12px; }
+fieldset { border: 1px solid var(--line); border-radius: 8px; margin: 0; padding: 6px 14px 10px; background: var(--surface); display: flex; flex-wrap: wrap; align-items: center; gap: 4px 20px; min-width: 0; }
+legend { font-size: 0.8rem; color: var(--muted); padding: 0 6px; }
+label.opt { display: inline-flex; align-items: center; gap: 6px; font-size: 0.875rem; cursor: pointer; }
+label.opt code { font-family: var(--font-code); font-size: 0.8rem; }
+input[type="text"] { font-family: var(--font-code); font-size: 0.8rem; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 5px; padding: 3px 8px; width: 15em; max-width: 100%; }
+.panes { flex: 1 1 auto; min-height: 300px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+@media (max-width: 800px) { .panes { grid-template-columns: minmax(0, 1fr); } html, body { height: auto; } .pane textarea { height: 45vh; } }
+.pane { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+.pane-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.pane-head h2 { font-size: 0.95rem; margin: 0; }
+.pane-head .btns { display: flex; gap: 6px; }
+textarea {
+  flex: 1 1 auto; width: 100%; min-height: 0; resize: none;
+  border: 1px solid var(--line); border-radius: 8px; padding: 12px;
+  background: var(--surface); color: var(--ink);
+  font-family: var(--font-code); font-size: 12.5px; line-height: 1.55; tab-size: 4; white-space: pre; overflow: auto;
+}
+#src { flex: 3 1 0; }
+#map { flex: 1 1 0; min-height: 96px; }
+@media (max-width: 800px) { .pane #map { height: 22vh; } }
+textarea:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+button { font: inherit; font-size: 0.85rem; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 4px 12px; cursor: pointer; }
+button:hover { border-color: var(--muted); }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.status { font-size: 0.85rem; color: var(--muted); min-height: 3.2em; }
+.status b { color: var(--ok); font-weight: 700; }
+.status .warn { color: var(--warn); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>XML クラス変換</h1>
+    <p class="lede">左に XML を貼り付けると、それを読むための C# のクラスが右に出ます。変換はこのページの中だけで行い、どこにも送りません。</p>
+  </header>
+
+  <div class="opts">
+    <fieldset>
+      <legend>クラスの作り方</legend>
+      <label class="opt"><input type="checkbox" id="o-int" checked> 整数は <code>int</code> にする</label>
+      <label class="opt"><input type="checkbox" id="o-string"> 全部の型を <code>string</code> にする</label>
+      <label class="opt"><input type="checkbox" id="o-noattr"> 属性を付けない</label>
+      <label class="opt" for="o-ns">namespace <input type="text" id="o-ns" value="BlazorApp.Shared" placeholder="空にすると namespace を付けない" spellcheck="false"></label>
+    </fieldset>
+  </div>
+
+  <div class="panes">
+    <section class="pane">
+      <div class="pane-head">
+        <h2><label for="src">貼り付ける欄（XML）</label></h2>
+        <div class="btns">
+          <button type="button" id="sample">見本を入れる</button>
+          <button type="button" id="clear">消す</button>
+        </div>
+      </div>
+      <textarea id="src" spellcheck="false" placeholder="ここに XML を貼り付けます"></textarea>
+      <div class="pane-head">
+        <h2><label for="map">コメントの対応表（無くてもよい）</label></h2>
+      </div>
+      <textarea id="map" spellcheck="false" placeholder="1行に1つ、「名前,説明」の形で書きます&#10;capacity,収容人数&#10;floorArea,延べ床面積&#10;facility,施設"></textarea>
+    </section>
+    <section class="pane">
+      <div class="pane-head">
+        <h2><label for="dst">変換した結果（C# のクラス）</label></h2>
+        <div class="btns"><button type="button" class="primary" id="copy">コピー</button></div>
+      </div>
+      <textarea id="dst" spellcheck="false" readonly></textarea>
+    </section>
+  </div>
+
+  <p class="status" id="status" aria-live="polite"></p>
+</div>
+
+<script>
+// <generate>
+// XML を木の形（{ name, ns, attrs: [{name, value}], children: [...], text }）で受け取り、C# のクラスの文字を返す。画面には触らない
+function generate(root, opt) {
+  var KEYWORDS = {};
+  ('abstract as base bool break byte case catch char checked class const continue decimal default delegate do double else enum event ' +
+   'explicit extern false finally fixed float for foreach goto if implicit in int interface internal is lock long namespace new null object ' +
+   'operator out override params private protected public readonly ref return sbyte sealed short sizeof stackalloc static string struct switch ' +
+   'this throw true try typeof uint ulong unchecked unsafe ushort using virtual void volatile while').split(' ').forEach(function (k) { KEYWORDS[k] = 1; });
+  var st = { classes: 0, props: 0, lists: 0, renamed: 0, nullables: 0, comments: 0, single: [] };
+  // 対応表（名前 → 説明）から説明を探す。「親のタグ名.名前」で書いた行があれば、そちらを優先する
+  var docs = opt.comments || {}, usedDocs = {};
+  function has(key) { return Object.prototype.hasOwnProperty.call(docs, key); }
+  function docFor(parent, name) {
+    var key = parent ? parent + '.' + name : null;
+    if (key && has(key)) { usedDocs[key] = 1; return docs[key]; }
+    if (has(name)) { usedDocs[name] = 1; return docs[name]; }
+    return null;
+  }
+  function summary(text) { return '/// <summary> ' + text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + ' </summary>'; }
+
+  // ---- 1. 同じ場所にあるタグを全部見て、項目と子のタグを集める ----
+  function newInfo(name) { return { name: name, attrs: {}, attrOrder: [], kids: {}, kidOrder: [], texts: [], count: 0 }; }
+  function visit(el, info) {
+    info.count += 1;
+    el.attrs.forEach(function (a) {
+      if (!info.attrs[a.name]) { info.attrs[a.name] = []; info.attrOrder.push(a.name); }
+      info.attrs[a.name].push(a.value);
+    });
+    var seen = {};
+    el.children.forEach(function (c) {
+      if (!info.kids[c.name]) { info.kids[c.name] = { maxOcc: 0, info: newInfo(c.name) }; info.kidOrder.push(c.name); }
+      seen[c.name] = (seen[c.name] || 0) + 1;
+      visit(c, info.kids[c.name].info);
+    });
+    for (var n in seen) if (seen[n] > info.kids[n].maxOcc) info.kids[n].maxOcc = seen[n];
+    if (!el.children.length) info.texts.push(el.text);
+    else if (el.text) info.hasMixedText = true;
+  }
+  var rootInfo = newInfo(root.name);
+  visit(root, rootInfo);
+
+  function hasText(info) { return info.texts.some(function (t) { return t !== ''; }); }
+  function isSimple(info) { return !info.attrOrder.length && !info.kidOrder.length; }
+  // 入れ物のタグ: 自分の項目が無く、中に同じ名前のタグが繰り返し並ぶだけ
+  function isWrapper(info) {
+    return !info.attrOrder.length && info.kidOrder.length === 1 && info.kids[info.kidOrder[0]].maxOcc > 1 && !hasText(info);
+  }
+
+  // ---- 2. 値の並びから型を決める ----
+  // allowNullable が true のときは、空の値が混ざっていても型を付け、nullable の印を返す
+  function inferType(values, allowNullable) {
+    if (opt.allString) return { type: 'string' };   // 値を見ずに、全部 string にする設定
+    var filled = values.filter(function (v) { return v.trim() !== ''; });
+    if (!filled.length) return { type: 'string' };  // 全部が空なら、型を決める手がかりが無い
+    var t = inferCore(filled);
+    if (filled.length === values.length || t.type === 'string') return t;
+    return allowNullable ? { type: t.type, nullable: true } : { type: 'string' };
+  }
+  // 空でない値の並びから、型を決める
+  function inferCore(values) {
+    var all = function (re) { return values.every(function (v) { return re.test(v); }); };
+    if (all(/^(true|false)$/)) return { type: 'bool' };
+    if (all(/^-?(0|[1-9]\d*)$/)) {
+      var min = 0, max = 0, big = false;
+      values.forEach(function (v) { var n = Number(v); if (!Number.isSafeInteger(n)) big = true; if (n < min) min = n; if (n > max) max = n; });
+      if (big) return { type: 'string' };
+      if (opt.toInt) return { type: (min < -2147483648 || max > 2147483647) ? 'long' : 'int' };
+      if (min < 0) return { type: min >= -128 && max <= 127 ? 'sbyte' : min >= -32768 && max <= 32767 ? 'short' : min >= -2147483648 && max <= 2147483647 ? 'int' : 'long' };
+      return { type: max <= 255 ? 'byte' : max <= 65535 ? 'ushort' : max <= 4294967295 ? 'uint' : 'ulong' };
+    }
+    // 小数。整数（80）と小数（120.5）が混ざっていても、小数として扱う
+    if (all(/^-?(0|[1-9]\d*)(\.\d+)?$/)) return { type: 'decimal' };
+    if (all(/^\d{4}-\d{2}-\d{2}$/)) return { type: 'DateTime', dataType: 'date' };
+    if (all(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?$/)) return { type: 'DateTime' };
+    return { type: 'string' };
+  }
+
+  // ---- 3. 名前と属性の書き方 ----
+  function ident(name) {
+    var s = name.replace(/[^\p{L}\p{Nd}_]/gu, '_');
+    if (/^\p{Nd}/u.test(s)) s = '_' + s;
+    return s;
+  }
+  function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+  function q(s) { return '"' + s.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"'; }
+  function attr(kind, args) {
+    if (opt.noAttr) return null;          // 属性を付けない設定。呼び出した側で、この行を捨てる
+    args = args.filter(Boolean);
+    if (opt.short) return '[' + kind + (args.length ? '(' + args.join(', ') + ')' : '') + ']';
+    return '[System.Xml.Serialization.' + kind + 'Attribute(' + args.join(', ') + ')]';
+  }
+
+  // ---- 4. クラスを書き出す ----
+  var out = [], queue = [], usedClass = {};
+  function className(base) {
+    var n = base, i = 1;
+    while (usedClass[n]) { i += 1; n = base + i; }
+    usedClass[n] = 1;
+    return n;
+  }
+  function emitClass(info, cls, isRoot) {
+    st.classes += 1;
+    var lines = [], used = {}, curDoc = null;
+    used[cls] = 1;
+    // いま書き出そうとしている項目の説明があれば、コメントの行として出す
+    function pushDoc() {
+      if (curDoc) { lines.push('    ' + summary(curDoc)); st.comments += 1; }
+      curDoc = null;
+    }
+    // プロパティの名前を決める。XML の名前のままでは C# で使えないときだけ、名前を変えて元の名前を属性に書く
+    function propName(xmlName, quiet) {
+      var p = ident(xmlName), i = 1, base;
+      if (used[p]) { base = p; while (used[base + i]) i += 1; p = base + i; }
+      used[p] = 1;
+      var changed = p !== xmlName;
+      if (changed && !quiet) st.renamed += 1;
+      return { name: KEYWORDS[p] ? '@' + p : p, changed: changed };
+    }
+    function add(attrLines, type, name) {
+      pushDoc();
+      attrLines.filter(Boolean).forEach(function (a) { lines.push('    ' + a); });
+      lines.push('    public ' + type + ' ' + name + ' { get; set; }');
+      lines.push('');
+      st.props += 1;
+    }
+    // 文字を型の付いた値に変える式。小数点や日付の読み方が PC の設定で変わらないよう、InvariantCulture を使う
+    function parseExpr(type, raw) {
+      if (type === 'bool') return 'bool.TryParse(' + raw + ', out var v) ? v : null';
+      st.needGlobalization = true;
+      if (type === 'DateTime') return 'DateTime.TryParse(' + raw + ', CultureInfo.InvariantCulture, DateTimeStyles.None, out var v) ? v : null';
+      return type + '.TryParse(' + raw + ', ' + (type === 'decimal' ? 'NumberStyles.Number' : 'NumberStyles.Integer') + ', CultureInfo.InvariantCulture, out var v) ? v : null';
+    }
+    // 空の値が混ざる項目。XmlSerializer は int? を属性として読めないので、
+    // XML からは文字（〜Text）で受け取り、型の付いた値（空なら null）を別のプロパティで見せる
+    function addNullable(kind, xmlName, p, t) {
+      st.nullables += 1;
+      if (opt.noAttr) { add([], t.type + '?', p.name); return; }
+      var raw = propName(xmlName + 'Text', true);
+      lines.push('    ' + attr(kind, [q(xmlName)]));
+      lines.push('    public string ' + raw.name + ' { get; set; }');
+      lines.push('');
+      pushDoc();
+      lines.push('    [XmlIgnore]');
+      lines.push('    public ' + t.type + '? ' + p.name + ' => ' + parseExpr(t.type, raw.name) + ';');
+      lines.push('');
+      st.props += 1;
+    }
+    info.kidOrder.forEach(function (kn) {
+      var k = info.kids[kn], p = propName(kn), t, inner, innerCls;
+      curDoc = docFor(info.name, kn);
+      if (isSimple(k.info)) {
+        t = inferType(k.info.texts, k.maxOcc <= 1);
+        if (t.nullable) addNullable('XmlElement', kn, p, t);
+        else if (k.maxOcc > 1) { st.lists += 1; add([attr('XmlElement', [q(kn), t.dataType && 'DataType = ' + q(t.dataType)])], 'List<' + t.type + '>', p.name); }
+        else add((p.changed || t.dataType) ? [attr('XmlElement', [p.changed && q(kn), t.dataType && 'DataType = ' + q(t.dataType)])] : [], t.type, p.name);
+      } else if (isWrapper(k.info)) {
+        inner = k.info.kids[k.info.kidOrder[0]];
+        st.lists += 1;
+        var a = [];
+        if (p.changed) a.push(attr('XmlArray', [q(kn)]));
+        if (isSimple(inner.info)) {
+          t = inferType(inner.info.texts);
+          a.push(attr('XmlArrayItem', [q(inner.info.name), t.dataType && 'DataType = ' + q(t.dataType)]));
+          add(a, 'List<' + t.type + '>', p.name);
+        } else {
+          innerCls = className(cls + cap(ident(inner.info.name)));
+          queue.push([inner.info, innerCls]);
+          a.push(attr('XmlArrayItem', [q(inner.info.name)]));
+          add(a, 'List<' + innerCls + '>', p.name);
+        }
+      } else {
+        innerCls = className(cls + cap(ident(kn)));
+        queue.push([k.info, innerCls]);
+        if (k.maxOcc > 1) { st.lists += 1; add([attr('XmlElement', [q(kn)])], 'List<' + innerCls + '>', p.name); }
+        else {
+          add(p.changed ? [attr('XmlElement', [q(kn)])] : [], innerCls, p.name);
+          // 1回しか出てこない、項目を持つタグ。見本に1つしか無いだけで、実際は繰り返すのかもしれない
+          if (k.info.count === info.count && info.count === 1 && !k.info.attrOrder.length) st.single.push(kn);
+        }
+      }
+    });
+    info.attrOrder.forEach(function (an) {
+      var p = propName(an), t = inferType(info.attrs[an], true);
+      curDoc = docFor(info.name, an);
+      if (t.nullable) { addNullable('XmlAttribute', an, p, t); return; }
+      add([attr('XmlAttribute', [p.changed && q(an), t.dataType && 'DataType = ' + q(t.dataType)])], t.type, p.name);
+    });
+    if (hasText(info) && (info.attrOrder.length || info.kidOrder.length)) {
+      add([attr('XmlText', [])], inferType(info.texts.filter(function (x) { return x !== ''; })).type, propName('Value').name);
+    }
+    if (lines.length && lines[lines.length - 1] === '') lines.pop();
+    var head = [], classDoc = docFor(null, info.name);
+    // クラスのコメントは、3行に分けた形で出す。項目のコメントは1行のまま
+    if (classDoc) {
+      head.push('/// <summary>', '/// ' + classDoc.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'), '/// </summary>');
+      st.comments += 1;
+    }
+    if (isRoot && !opt.noAttr) head.push(attr('XmlRoot', [cls !== info.name && q(info.name), 'Namespace = ' + q(root.ns || '')]));
+    head.push('public partial class ' + cls, '{');
+    out.push(head.concat(lines, ['}']));
+  }
+  queue.push([rootInfo, className(ident(root.name))]);
+  var first = true;
+  while (queue.length) { var item = queue.shift(); emitClass(item[0], item[1], first); first = false; }
+
+  // ---- 5. using と namespace を付けて、1つの文字にまとめる ----
+  var body = out.map(function (c) { return c.join('\n'); }).join('\n\n');
+  var usings = ['using System;', 'using System.Collections.Generic;'];
+  if (st.needGlobalization && !opt.noAttr) usings.push('using System.Globalization;');
+  if (opt.short && !opt.noAttr) usings.push('using System.Xml.Serialization;');
+  var ns = (opt.ns || '').trim();
+  var text = usings.join('\n') + '\n\n';
+  if (ns) text += 'namespace ' + ns + '\n{\n' + body.split('\n').map(function (l) { return l ? '    ' + l : l; }).join('\n') + '\n}\n';
+  else text += body + '\n';
+  st.linesOut = text.replace(/\n$/, '').split('\n').length;
+  st.unusedDocs = Object.keys(docs).filter(function (k) { return !usedDocs[k]; });
+  return { text: text, stats: st };
+}
+// </generate>
+
+(function () {
+  var SAMPLE = [
+    '<?xml version="1.0" encoding="utf-8"?>',
+    '<shopData>',
+    '  <info version="3" updatedAt="2026-11-14T09:30:00" source="見本のデータ" />',
+    '  <shops>',
+    '    <shop id="1" name="駅前店" open="true" seats="24" area="85.5" since="2019-04-01">',
+    '      <hours open="09:00" close="18:00" />',
+    '      <staff><member>佐藤</member><member>鈴木</member></staff>',
+    '    </shop>',
+    '    <shop id="2" name="公園店" open="false" seats="300" area="120.25" since="2021-10-15">',
+    '      <hours open="10:00" close="20:00" />',
+    '      <staff><member>高橋</member><member>田中</member></staff>',
+    '    </shop>',
+    '  </shops>',
+    '</shopData>',
+    ''
+  ].join('\n');
+
+  var SAMPLE_MAP = ['shopData,店舗のデータ', 'shop,店舗', 'shops,店舗の一覧', 'id,番号', 'name,店の名前', 'seats,席の数', 'since,開店した日', 'hours.open,開く時刻', 'shop.open,営業中なら true', 'staff,担当者の名前'].join('\n');
+
+  var src = document.getElementById('src');
+  var dst = document.getElementById('dst');
+  var status = document.getElementById('status');
+  var checks = { toInt: 'o-int', allString: 'o-string', noAttr: 'o-noattr' };
+  var nsBox = document.getElementById('o-ns');
+  var mapBox = document.getElementById('map');
+
+  // 対応表の文字を、名前 → 説明 の組にする。1行に1つ。最初のカンマまでが名前で、その後ろが説明
+  function parseComments(text) {
+    var map = {}, bad = 0;
+    text.split(/\r?\n/).forEach(function (line) {
+      line = line.trim();
+      if (!line || line.charAt(0) === '#') return;
+      // カンマ（全角のカンマでもよい）で区切る。カンマが無い行は、空白かタブで区切る
+      var m = /^([^,，\s]+)\s*[,，]\s*(.+)$/.exec(line) || /^(\S+)\s+(.+)$/.exec(line);
+      if (m) map[m[1]] = m[2].trim(); else bad += 1;
+    });
+    return { map: map, bad: bad };
+  }
+
+  function options() {
+    var o = {};
+    for (var k in checks) o[k] = document.getElementById(checks[k]).checked;
+    o.ns = nsBox.value;
+    o.short = true;   // 属性は、いつも短い名前（[XmlAttribute] の形）で出す
+    o.comments = parseComments(mapBox.value).map;
+    return o;
+  }
+
+  // ブラウザが読んだ XML を、generate に渡す木の形に写す
+  function toTree(el) {
+    var attrs = [], children = [], text = '', i, n;
+    for (i = 0; i < el.attributes.length; i++) {
+      n = el.attributes[i];
+      if (n.name === 'xmlns' || n.prefix === 'xmlns' || n.prefix === 'xsi') continue;
+      attrs.push({ name: n.localName, value: n.value });
+    }
+    for (i = 0; i < el.childNodes.length; i++) {
+      n = el.childNodes[i];
+      if (n.nodeType === 1) children.push(toTree(n));
+      else if (n.nodeType === 3 || n.nodeType === 4) text += n.nodeValue;
+    }
+    return { name: el.localName, ns: el.namespaceURI || '', attrs: attrs, children: children, text: text.trim() };
+  }
+
+  function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+
+  function runXml(o) {
+    var doc = new DOMParser().parseFromString(src.value.replace(/^﻿/, '').trim(), 'application/xml');
+    var err = doc.getElementsByTagName('parsererror')[0];
+    if (err || !doc.documentElement) {
+      dst.value = '';
+      var msg = err ? (err.querySelector('div') || err).textContent.replace(/\s+/g, ' ').trim() : '';
+      status.innerHTML = '<span class="warn">XML として読めませんでした。タグの閉じ忘れや、途中までしかコピーできていないことが多いです。' + (msg ? '<br>' + esc(msg) : '') + '</span>';
+      return;
+    }
+    var r = generate(toTree(doc.documentElement), o), st = r.stats;
+    dst.value = r.text;
+    var parts = ['<b>XML から、クラス ' + st.classes + ' 個、項目 ' + st.props + ' 個を作りました</b>'];
+    if (st.lists) parts.push('繰り返すタグ ' + st.lists + ' 個を List にした');
+    if (st.comments) parts.push('コメント ' + st.comments + ' 個を付けた');
+    if (st.nullables) parts.push('空の値が混ざる項目 ' + st.nullables + ' 個は、空なら null になる型にした');
+    var warn = [];
+    if (st.unusedDocs.length) warn.push('対応表にあるのに、XML に無い名前があります：' + st.unusedDocs.map(esc).join('、'));
+    var badLines = parseComments(mapBox.value).bad;
+    if (badLines) warn.push('対応表に、説明が書かれていない行が ' + badLines + ' 行あります。その行は使っていません');
+    if (o.noAttr) warn.push('属性を付けていないので、このクラスは XmlSerializer では読めません（タグの中に書いた項目と、List の中身が入りません）。読むコードを別に用意する必要があります');
+    if (st.renamed) warn.push(o.noAttr
+      ? 'C# で使えない名前が ' + st.renamed + ' 個あったので、名前を変えました。属性が無いので、元の名前はクラスに残っていません'
+      : 'C# で使えない名前が ' + st.renamed + ' 個あったので、名前を変えて、元の名前を属性に書きました');
+    if (st.single.length) warn.push('1回しか出てこないタグ（' + st.single.map(esc).join('、') + '）は、List にしていません。実際は繰り返すなら、見本に2つ以上入れてください');
+    if (doc.documentElement.namespaceURI && !o.noAttr) warn.push('名前空間（xmlns）のある XML です。XmlRoot に入れましたが、この形はまだ試していません');
+    // 先頭の行に UTF-8 以外の文字コード（Shift_JIS など）が書いてあるときは、読む側に1行が要ることを知らせる
+    var enc = /^\s*<\?xml[^>]*encoding\s*=\s*["']([^"']+)["']/i.exec(src.value.replace(/^﻿/, ''));
+    if (enc && !/^(utf-?8|utf-?16|us-ascii)$/i.test(enc[1])) {
+      warn.push('この XML の文字コードは ' + esc(enc[1]) + ' です。ファイルを読む前に、Program.cs で Encoding.RegisterProvider(CodePagesEncodingProvider.Instance); を1回呼ぶ必要があります');
+    }
+    warn.push('型は、貼り付けた XML の値から決めています。見本に無い項目は、クラスに入りません');
+    status.innerHTML = parts.join('、') + '<br><span class="warn">' + warn.join('<br>') + '</span>';
+  }
+
+  function run() {
+    var text = src.value.replace(/^﻿/, '').trim();
+    if (!text) { dst.value = ''; status.textContent = '左の欄に XML を貼り付けてください。「見本を入れる」で動きを試せます。'; return; }
+    // 「全部の型を string にする」のときは、整数の型の選択肢は意味が無いので、選べなくする
+    document.getElementById('o-int').disabled = document.getElementById('o-string').checked;
+    if (text.charAt(0) !== '<') {
+      dst.value = '';
+      status.innerHTML = '<span class="warn">XML ではないようです。&lt; で始まる XML を貼り付けてください。</span>';
+      return;
+    }
+    runXml(options());
+  }
+
+  function save() {
+    try { localStorage.setItem('xml-class-converter-options-4', JSON.stringify(options())); } catch (e) {}
+  }
+  src.addEventListener('input', run);
+  mapBox.addEventListener('input', function () {
+    try { localStorage.setItem('xml-class-converter-comments', mapBox.value); } catch (e) {}
+    run();
+  });
+  for (var k in checks) document.getElementById(checks[k]).addEventListener('change', function () { save(); run(); });
+  nsBox.addEventListener('input', function () { save(); run(); });
+  document.getElementById('sample').addEventListener('click', function () {
+    src.value = SAMPLE;
+    if (!mapBox.value.trim()) mapBox.value = SAMPLE_MAP;   // 対応表が空のときだけ、見本を入れる。保存はしない
+    run();
+  });
+  document.getElementById('clear').addEventListener('click', function () { src.value = ''; run(); src.focus(); });
+  document.getElementById('copy').addEventListener('click', function () {
+    var btn = this;
+    function done(ok) { btn.textContent = ok ? 'コピーしました' : '選択しました（Ctrl+C）'; setTimeout(function () { btn.textContent = 'コピー'; }, 1600); }
+    function fallback() { dst.focus(); dst.select(); var ok = false; try { ok = document.execCommand('copy'); } catch (e) {} done(ok); }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(dst.value).then(function () { done(true); }, fallback);
+    else fallback();
+  });
+
+  // 前に選んだ内容を戻す
+  try {
+    var saved = JSON.parse(localStorage.getItem('xml-class-converter-options-4') || 'null');
+    if (saved) {
+      for (var k2 in checks) if (typeof saved[k2] === 'boolean') document.getElementById(checks[k2]).checked = saved[k2];
+      if (typeof saved.ns === 'string') nsBox.value = saved.ns;
+    }
+  } catch (e) {}
+  try { mapBox.value = localStorage.getItem('xml-class-converter-comments') || ''; } catch (e) {}
+  // アドレスの最後に #sample を付けて開くと、見本を入れた状態で始まる
+  if (location.hash === '#sample') { src.value = SAMPLE; if (!mapBox.value.trim()) mapBox.value = SAMPLE_MAP; }
+  run();
+})();
+</script>
+</body>
+</html>
