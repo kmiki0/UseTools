@@ -31,7 +31,8 @@ fieldset { border: 1px solid var(--line); border-radius: 8px; margin: 0; padding
 legend { font-size: 0.8rem; color: var(--muted); padding: 0 6px; }
 label.opt { display: inline-flex; align-items: center; gap: 6px; font-size: 0.875rem; cursor: pointer; }
 label.opt code { font-family: var(--font-code); font-size: 0.8rem; }
-input[type="text"] { font-family: var(--font-code); font-size: 0.8rem; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 5px; padding: 3px 8px; width: 15em; max-width: 100%; }
+input[type="text"], select { font-family: var(--font-code); font-size: 0.8rem; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 5px; padding: 3px 8px; max-width: 100%; }
+input[type="text"] { width: 15em; }
 .panes { flex: 1 1 auto; min-height: 300px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
 @media (max-width: 800px) { .panes { grid-template-columns: minmax(0, 1fr); } html, body { height: auto; } .pane textarea { height: 45vh; } }
 .pane { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
@@ -47,7 +48,7 @@ textarea {
 #src { flex: 3 1 0; }
 #map { flex: 1 1 0; min-height: 96px; }
 @media (max-width: 800px) { .pane #map { height: 22vh; } }
-textarea:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+textarea:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 button { font: inherit; font-size: 0.85rem; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 4px 12px; cursor: pointer; }
 button:hover { border-color: var(--muted); }
 button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
@@ -68,7 +69,21 @@ button.primary { background: var(--accent); color: var(--accent-ink); border-col
       <legend>クラスの作り方</legend>
       <label class="opt"><input type="checkbox" id="o-int" checked> 整数は <code>int</code> にする</label>
       <label class="opt"><input type="checkbox" id="o-string"> 全部の型を <code>string</code> にする</label>
-      <label class="opt"><input type="checkbox" id="o-noattr"> 属性を付けない</label>
+      <label class="opt"><input type="checkbox" id="o-pascal" checked> 名前を <code>PascalCase</code> にする</label>
+      <label class="opt"><input type="checkbox" id="o-init" checked> <code>set</code> を <code>init</code> にする</label>
+      <label class="opt" for="o-attr">属性
+        <select id="o-attr">
+          <option value="config" selected>[XMLConfig("XML の名前")]</option>
+          <option value="xml">XmlSerializer 用（[XmlElement] など）</option>
+          <option value="none">付けない</option>
+        </select>
+      </label>
+      <label class="opt" for="o-type">型
+        <select id="o-type">
+          <option value="record" selected>public record</option>
+          <option value="class">public partial class</option>
+        </select>
+      </label>
       <label class="opt" for="o-ns">namespace <input type="text" id="o-ns" value="MyApp.Models" placeholder="空にすると namespace を付けない" spellcheck="false"></label>
     </fieldset>
   </div>
@@ -86,7 +101,7 @@ button.primary { background: var(--accent); color: var(--accent-ink); border-col
       <div class="pane-head">
         <h2><label for="map">コメントの対応表（無くてもよい）</label></h2>
       </div>
-      <textarea id="map" spellcheck="false" placeholder="1行に1つ、「名前,説明」の形で書きます&#10;capacity,収容人数&#10;floorArea,延べ床面積&#10;facility,施設"></textarea>
+      <textarea id="map" spellcheck="false" placeholder="1行に1つ、「名前,説明」の形で書きます&#10;capacity,収容人数&#10;floor_area,延べ床面積&#10;facility,施設"></textarea>
     </section>
     <section class="pane">
       <div class="pane-head">
@@ -185,7 +200,19 @@ function generate(root, opt) {
     return s;
   }
   function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+  // C# で使う名前。PascalCase の設定なら、ident の結果を _ で分け、各部分の先頭を大文字にしてつなぐ（shop_name → ShopName）
+  function csName(name) {
+    var s = ident(name);
+    if (!opt.pascal) return s;
+    var p = s.split('_').filter(Boolean).map(cap).join('');
+    if (!p) return s;   // _ だけの名前は、そのままにする
+    if (/^\p{Nd}/u.test(p)) p = '_' + p;
+    return p;
+  }
   function q(s) { return '"' + s.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"'; }
+  // 読む側のプロジェクトにある属性。XML の名前をそのまま書く
+  function cfg(xmlName) { return '[XMLConfig(' + q(xmlName) + ')]'; }
+  var accessors = opt.init ? '{ get; init; }' : '{ get; set; }';
   function attr(kind, args) {
     if (opt.noAttr) return null;          // 属性を付けない設定。呼び出した側で、この行を捨てる
     args = args.filter(Boolean);
@@ -201,7 +228,8 @@ function generate(root, opt) {
     usedClass[n] = 1;
     return n;
   }
-  function emitClass(info, cls, isRoot) {
+  // parentDoc は、このクラスを指すプロパティに付けた説明。クラスの説明が同じなら、クラスには付けない
+  function emitClass(info, cls, isRoot, parentDoc) {
     st.classes += 1;
     var lines = [], used = {}, curDoc = null;
     used[cls] = 1;
@@ -210,19 +238,20 @@ function generate(root, opt) {
       if (curDoc) { lines.push('    ' + summary(curDoc)); st.comments += 1; }
       curDoc = null;
     }
-    // プロパティの名前を決める。XML の名前のままでは C# で使えないときだけ、名前を変えて元の名前を属性に書く
+    // プロパティの名前を決める。名前が XML と変わったときは、元の名前を属性に書く。
+    // 「使えない名前を変えた」と数えるのは、ident で変わったときと、ぶつかって数字を付けたときだけ（PascalCase にしただけなら数えない）
     function propName(xmlName, quiet) {
-      var p = ident(xmlName), i = 1, base;
-      if (used[p]) { base = p; while (used[base + i]) i += 1; p = base + i; }
+      var p = csName(xmlName), i = 1, base, bumped = false;
+      if (used[p]) { base = p; while (used[base + i]) i += 1; p = base + i; bumped = true; }
       used[p] = 1;
       var changed = p !== xmlName;
-      if (changed && !quiet) st.renamed += 1;
+      if ((bumped || ident(xmlName) !== xmlName) && !quiet) st.renamed += 1;
       return { name: KEYWORDS[p] ? '@' + p : p, changed: changed };
     }
     function add(attrLines, type, name) {
       pushDoc();
       attrLines.filter(Boolean).forEach(function (a) { lines.push('    ' + a); });
-      lines.push('    public ' + type + ' ' + name + ' { get; set; }');
+      lines.push('    public ' + type + ' ' + name + ' ' + accessors);
       lines.push('');
       st.props += 1;
     }
@@ -240,7 +269,7 @@ function generate(root, opt) {
       if (opt.noAttr) { add([], t.type + '?', p.name); return; }
       var raw = propName(xmlName + 'Text', true);
       lines.push('    ' + attr(kind, [q(xmlName)]));
-      lines.push('    public string ' + raw.name + ' { get; set; }');
+      lines.push('    public string ' + raw.name + ' ' + accessors);
       lines.push('');
       pushDoc();
       lines.push('    [XmlIgnore]');
@@ -248,69 +277,98 @@ function generate(root, opt) {
       lines.push('');
       st.props += 1;
     }
-    info.kidOrder.forEach(function (kn) {
-      var k = info.kids[kn], p = propName(kn), t, inner, innerCls;
-      curDoc = docFor(info.name, kn);
-      if (isSimple(k.info)) {
-        t = inferType(k.info.texts, k.maxOcc <= 1);
-        if (t.nullable) addNullable('XmlElement', kn, p, t);
-        else if (k.maxOcc > 1) { st.lists += 1; add([attr('XmlElement', [q(kn), t.dataType && 'DataType = ' + q(t.dataType)])], 'List<' + t.type + '>', p.name); }
-        else add((p.changed || t.dataType) ? [attr('XmlElement', [p.changed && q(kn), t.dataType && 'DataType = ' + q(t.dataType)])] : [], t.type, p.name);
-      } else if (isWrapper(k.info)) {
-        inner = k.info.kids[k.info.kidOrder[0]];
-        st.lists += 1;
-        var a = [];
-        if (p.changed) a.push(attr('XmlArray', [q(kn)]));
-        if (isSimple(inner.info)) {
-          t = inferType(inner.info.texts);
-          a.push(attr('XmlArrayItem', [q(inner.info.name), t.dataType && 'DataType = ' + q(t.dataType)]));
-          add(a, 'List<' + t.type + '>', p.name);
+    if (opt.config) {
+      // [XMLConfig] の形：すべてのプロパティに元の XML の名前を書く。入れ物のタグもクラスにし、繰り返すタグは List にする
+      info.kidOrder.forEach(function (kn) {
+        var k = info.kids[kn], p = propName(kn), t, type;
+        curDoc = docFor(info.name, kn);
+        if (isSimple(k.info)) {
+          t = inferType(k.info.texts, k.maxOcc <= 1);
+          if (t.nullable) st.nullables += 1;
+          type = t.type + (t.nullable ? '?' : '');
         } else {
-          innerCls = className(cls + cap(ident(inner.info.name)));
-          queue.push([inner.info, innerCls]);
-          a.push(attr('XmlArrayItem', [q(inner.info.name)]));
-          add(a, 'List<' + innerCls + '>', p.name);
+          type = className(csName(kn));
+          queue.push([k.info, type, curDoc]);
+          // 1回しか出てこない、項目を持つタグ。入れ物のタグは、中のタグが List になるので外す
+          if (k.maxOcc <= 1 && k.info.count === info.count && info.count === 1 && !k.info.attrOrder.length && !isWrapper(k.info)) st.single.push(kn);
         }
-      } else {
-        innerCls = className(cls + cap(ident(kn)));
-        queue.push([k.info, innerCls]);
-        if (k.maxOcc > 1) { st.lists += 1; add([attr('XmlElement', [q(kn)])], 'List<' + innerCls + '>', p.name); }
-        else {
-          add(p.changed ? [attr('XmlElement', [q(kn)])] : [], innerCls, p.name);
-          // 1回しか出てこない、項目を持つタグ。見本に1つしか無いだけで、実際は繰り返すのかもしれない
-          if (k.info.count === info.count && info.count === 1 && !k.info.attrOrder.length) st.single.push(kn);
-        }
+        if (k.maxOcc > 1) { st.lists += 1; type = 'List<' + type + '>'; }
+        add([cfg(kn)], type, p.name);
+      });
+      info.attrOrder.forEach(function (an) {
+        var p = propName(an), t = inferType(info.attrs[an], true);
+        curDoc = docFor(info.name, an);
+        if (t.nullable) st.nullables += 1;
+        add([cfg(an)], t.type + (t.nullable ? '?' : ''), p.name);
+      });
+      if (hasText(info) && (info.attrOrder.length || info.kidOrder.length)) {
+        add([], inferType(info.texts.filter(function (x) { return x !== ''; })).type, propName('Value').name);
       }
-    });
-    info.attrOrder.forEach(function (an) {
-      var p = propName(an), t = inferType(info.attrs[an], true);
-      curDoc = docFor(info.name, an);
-      if (t.nullable) { addNullable('XmlAttribute', an, p, t); return; }
-      add([attr('XmlAttribute', [p.changed && q(an), t.dataType && 'DataType = ' + q(t.dataType)])], t.type, p.name);
-    });
-    if (hasText(info) && (info.attrOrder.length || info.kidOrder.length)) {
-      add([attr('XmlText', [])], inferType(info.texts.filter(function (x) { return x !== ''; })).type, propName('Value').name);
+    } else {
+      info.kidOrder.forEach(function (kn) {
+        var k = info.kids[kn], p = propName(kn), t, inner, innerCls;
+        curDoc = docFor(info.name, kn);
+        if (isSimple(k.info)) {
+          t = inferType(k.info.texts, k.maxOcc <= 1);
+          if (t.nullable) addNullable('XmlElement', kn, p, t);
+          else if (k.maxOcc > 1) { st.lists += 1; add([attr('XmlElement', [q(kn), t.dataType && 'DataType = ' + q(t.dataType)])], 'List<' + t.type + '>', p.name); }
+          else add((p.changed || t.dataType) ? [attr('XmlElement', [p.changed && q(kn), t.dataType && 'DataType = ' + q(t.dataType)])] : [], t.type, p.name);
+        } else if (isWrapper(k.info)) {
+          inner = k.info.kids[k.info.kidOrder[0]];
+          st.lists += 1;
+          var a = [];
+          if (p.changed) a.push(attr('XmlArray', [q(kn)]));
+          if (isSimple(inner.info)) {
+            t = inferType(inner.info.texts);
+            a.push(attr('XmlArrayItem', [q(inner.info.name), t.dataType && 'DataType = ' + q(t.dataType)]));
+            add(a, 'List<' + t.type + '>', p.name);
+          } else {
+            innerCls = className(cls + cap(csName(inner.info.name)));
+            queue.push([inner.info, innerCls]);
+            a.push(attr('XmlArrayItem', [q(inner.info.name)]));
+            add(a, 'List<' + innerCls + '>', p.name);
+          }
+        } else {
+          innerCls = className(cls + cap(csName(kn)));
+          queue.push([k.info, innerCls]);
+          if (k.maxOcc > 1) { st.lists += 1; add([attr('XmlElement', [q(kn)])], 'List<' + innerCls + '>', p.name); }
+          else {
+            add(p.changed ? [attr('XmlElement', [q(kn)])] : [], innerCls, p.name);
+            // 1回しか出てこない、項目を持つタグ。見本に1つしか無いだけで、実際は繰り返すのかもしれない
+            if (k.info.count === info.count && info.count === 1 && !k.info.attrOrder.length) st.single.push(kn);
+          }
+        }
+      });
+      info.attrOrder.forEach(function (an) {
+        var p = propName(an), t = inferType(info.attrs[an], true);
+        curDoc = docFor(info.name, an);
+        if (t.nullable) { addNullable('XmlAttribute', an, p, t); return; }
+        add([attr('XmlAttribute', [p.changed && q(an), t.dataType && 'DataType = ' + q(t.dataType)])], t.type, p.name);
+      });
+      if (hasText(info) && (info.attrOrder.length || info.kidOrder.length)) {
+        add([attr('XmlText', [])], inferType(info.texts.filter(function (x) { return x !== ''; })).type, propName('Value').name);
+      }
     }
     if (lines.length && lines[lines.length - 1] === '') lines.pop();
     var head = [], classDoc = docFor(null, info.name);
     // クラスのコメントは、3行に分けた形で出す。項目のコメントは1行のまま
-    if (classDoc) {
+    if (classDoc && classDoc !== parentDoc) {
       head.push('/// <summary>', '/// ' + classDoc.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'), '/// </summary>');
       st.comments += 1;
     }
-    if (isRoot && !opt.noAttr) head.push(attr('XmlRoot', [cls !== info.name && q(info.name), 'Namespace = ' + q(root.ns || '')]));
-    head.push('public partial class ' + cls, '{');
+    if (isRoot && !opt.noAttr && !opt.config) head.push(attr('XmlRoot', [cls !== info.name && q(info.name), 'Namespace = ' + q(root.ns || '')]));
+    head.push((opt.record ? 'public record ' : 'public partial class ') + cls, '{');
     out.push(head.concat(lines, ['}']));
   }
-  queue.push([rootInfo, className(ident(root.name))]);
+  queue.push([rootInfo, className(csName(root.name))]);
   var first = true;
-  while (queue.length) { var item = queue.shift(); emitClass(item[0], item[1], first); first = false; }
+  while (queue.length) { var item = queue.shift(); emitClass(item[0], item[1], first, item[2]); first = false; }
 
   // ---- 5. using と namespace を付けて、1つの文字にまとめる ----
   var body = out.map(function (c) { return c.join('\n'); }).join('\n\n');
   var usings = ['using System;', 'using System.Collections.Generic;'];
   if (st.needGlobalization && !opt.noAttr) usings.push('using System.Globalization;');
-  if (opt.short && !opt.noAttr) usings.push('using System.Xml.Serialization;');
+  if (opt.short && !opt.noAttr && !opt.config) usings.push('using System.Xml.Serialization;');
   var ns = (opt.ns || '').trim();
   var text = usings.join('\n') + '\n\n';
   if (ns) text += 'namespace ' + ns + '\n{\n' + body.split('\n').map(function (l) { return l ? '    ' + l : l; }).join('\n') + '\n}\n';
@@ -324,28 +382,30 @@ function generate(root, opt) {
 (function () {
   var SAMPLE = [
     '<?xml version="1.0" encoding="utf-8"?>',
-    '<shopData>',
-    '  <info version="3" updatedAt="2026-11-14T09:30:00" source="見本のデータ" />',
-    '  <shops>',
-    '    <shop id="1" name="駅前店" open="true" seats="24" area="85.5" since="2019-04-01">',
-    '      <hours open="09:00" close="18:00" />',
-    '      <staff><member>佐藤</member><member>鈴木</member></staff>',
+    '<shop_data>',
+    '  <info version="3" updated_at="2026-11-14T09:30:00" source="見本のデータ" />',
+    '  <shop_list>',
+    '    <shop shop_id="1" shop_name="駅前店" open="true" seat_count="24" floor_area="85.5" open_date="2019-04-01" note="">',
+    '      <business_hours open="09:00" close="18:00" />',
+    '      <staff_list><staff_name>佐藤</staff_name><staff_name>鈴木</staff_name></staff_list>',
     '    </shop>',
-    '    <shop id="2" name="公園店" open="false" seats="300" area="120.25" since="2021-10-15">',
-    '      <hours open="10:00" close="20:00" />',
-    '      <staff><member>高橋</member><member>田中</member></staff>',
+    '    <shop shop_id="2" shop_name="公園店" open="false" seat_count="300" floor_area="120.25" open_date="2021-10-15" note="改装中">',
+    '      <business_hours open="10:00" close="20:00" />',
+    '      <staff_list><staff_name>高橋</staff_name><staff_name>田中</staff_name></staff_list>',
     '    </shop>',
-    '  </shops>',
-    '</shopData>',
+    '  </shop_list>',
+    '</shop_data>',
     ''
   ].join('\n');
 
-  var SAMPLE_MAP = ['shopData,店舗のデータ', 'shop,店舗', 'shops,店舗の一覧', 'id,番号', 'name,店の名前', 'seats,席の数', 'since,開店した日', 'hours.open,開く時刻', 'shop.open,営業中なら true', 'staff,担当者の名前'].join('\n');
+  var SAMPLE_MAP = ['shop_data,店舗のデータ', 'shop,店舗', 'shop_list,店舗の一覧', 'shop_id,番号', 'shop_name,店の名前', 'seat_count,席の数', 'open_date,開店した日', 'business_hours.open,開く時刻', 'shop.open,営業中なら true', 'staff_list,担当者の名前'].join('\n');
 
   var src = document.getElementById('src');
   var dst = document.getElementById('dst');
   var status = document.getElementById('status');
-  var checks = { toInt: 'o-int', allString: 'o-string', noAttr: 'o-noattr' };
+  var checks = { toInt: 'o-int', allString: 'o-string', pascal: 'o-pascal', init: 'o-init' };
+  var attrBox = document.getElementById('o-attr');
+  var typeBox = document.getElementById('o-type');
   var nsBox = document.getElementById('o-ns');
   var mapBox = document.getElementById('map');
 
@@ -365,6 +425,12 @@ function generate(root, opt) {
   function options() {
     var o = {};
     for (var k in checks) o[k] = document.getElementById(checks[k]).checked;
+    // 属性の形：config = [XMLConfig("XML の名前")]、xml = XmlSerializer 用、none = 付けない
+    o.attrMode = attrBox.value;
+    o.noAttr = o.attrMode === 'none';
+    o.config = o.attrMode === 'config';
+    o.classType = typeBox.value;
+    o.record = o.classType === 'record';
     o.ns = nsBox.value;
     o.short = true;   // 属性は、いつも短い名前（[XmlAttribute] の形）で出す
     o.comments = parseComments(mapBox.value).map;
@@ -413,7 +479,9 @@ function generate(root, opt) {
       ? 'C# で使えない名前が ' + st.renamed + ' 個あったので、名前を変えました。属性が無いので、元の名前はクラスに残っていません'
       : 'C# で使えない名前が ' + st.renamed + ' 個あったので、名前を変えて、元の名前を属性に書きました');
     if (st.single.length) warn.push('1回しか出てこないタグ（' + st.single.map(esc).join('、') + '）は、List にしていません。実際は繰り返すなら、見本に2つ以上入れてください');
-    if (doc.documentElement.namespaceURI && !o.noAttr) warn.push('名前空間（xmlns）のある XML です。XmlRoot に入れましたが、この形はまだ試していません');
+    if (o.attrMode === 'xml' && o.init) warn.push('XmlSerializer で init のプロパティが読めるかは、まだ試していません。読めないときは『set を init にする』を外してください');
+    if (o.config) warn.push('[XMLConfig] の属性クラスは、使う側のプロジェクトにあるものとして、using は付けていません');
+    else if (doc.documentElement.namespaceURI && !o.noAttr) warn.push('名前空間（xmlns）のある XML です。XmlRoot に入れましたが、この形はまだ試していません');
     // 先頭の行に UTF-8 以外の文字コード（Shift_JIS など）が書いてあるときは、読む側に1行が要ることを知らせる
     var enc = /^\s*<\?xml[^>]*encoding\s*=\s*["']([^"']+)["']/i.exec(src.value.replace(/^﻿/, ''));
     if (enc && !/^(utf-?8|utf-?16|us-ascii)$/i.test(enc[1])) {
@@ -437,7 +505,11 @@ function generate(root, opt) {
   }
 
   function save() {
-    try { localStorage.setItem('xml-class-converter-options-5', JSON.stringify(options())); } catch (e) {}
+    try { localStorage.setItem('xml-class-converter-options-6', JSON.stringify(options())); } catch (e) {}
+  }
+  // 選択欄に、その値の選択肢があるか
+  function hasOption(sel, value) {
+    return typeof value === 'string' && Array.prototype.some.call(sel.options, function (op) { return op.value === value; });
   }
   src.addEventListener('input', run);
   mapBox.addEventListener('input', function () {
@@ -445,6 +517,7 @@ function generate(root, opt) {
     run();
   });
   for (var k in checks) document.getElementById(checks[k]).addEventListener('change', function () { save(); run(); });
+  [attrBox, typeBox].forEach(function (sel) { sel.addEventListener('change', function () { save(); run(); }); });
   nsBox.addEventListener('input', function () { save(); run(); });
   document.getElementById('sample').addEventListener('click', function () {
     src.value = SAMPLE;
@@ -462,9 +535,11 @@ function generate(root, opt) {
 
   // 前に選んだ内容を戻す
   try {
-    var saved = JSON.parse(localStorage.getItem('xml-class-converter-options-5') || 'null');
+    var saved = JSON.parse(localStorage.getItem('xml-class-converter-options-6') || 'null');
     if (saved) {
       for (var k2 in checks) if (typeof saved[k2] === 'boolean') document.getElementById(checks[k2]).checked = saved[k2];
+      if (hasOption(attrBox, saved.attrMode)) attrBox.value = saved.attrMode;
+      if (hasOption(typeBox, saved.classType)) typeBox.value = saved.classType;
       if (typeof saved.ns === 'string') nsBox.value = saved.ns;
     }
   } catch (e) {}
